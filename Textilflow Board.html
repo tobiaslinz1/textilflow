@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Textilflow</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body,#root{height:100%;overflow:hidden}
+body{font-family:'Outfit',sans-serif;background:#f4f4f5;color:#18181b;font-size:13px}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-thumb{background:#d4d4d8;border-radius:99px}
+input,textarea,select,button{font-family:'Outfit',sans-serif}
+button{cursor:pointer}
+[contenteditable]:focus{outline:none}
+[contenteditable] ul,[contenteditable] ol,.rich-content ul,.rich-content ol{padding-left:18px;margin:3px 0}
+[contenteditable] li,.rich-content li{margin:2px 0}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useRef,useMemo,useCallback}=React;
+
+/* ─── CONSTANTS ─── */
+const COVER_COLORS=['#e0e7ff','#fce7f3','#d1fae5','#fef9c3','#fee2e2','#e0f2fe','#ede9fe','#fef3c7','#ffedd5','#dcfce7'];
+const TAG_PALETTE=['#ddd6fe','#bfdbfe','#bbf7d0','#fde68a','#fecaca','#fed7aa','#e9d5ff','#fce7f3','#d1fae5','#e0e7ff','#fef9c3','#cffafe'];
+const PRIO={hoch:{label:'Hoch',c:'#ef4444',bg:'#fef2f2'},mittel:{label:'Mittel',c:'#f59e0b',bg:'#fffbeb'},niedrig:{label:'Niedrig',c:'#10b981',bg:'#f0fdf4'}};
+const FIELD_TYPES=[{id:'text',label:'Text',icon:'T'},{id:'number',label:'Zahl',icon:'#'},{id:'date',label:'Datum',icon:'D'}];
+const INIT_STATUSES=[{id:'anfrage',label:'Anfrage',color:'#94a3b8'},{id:'produktion',label:'Produktion',color:'#3b82f6'},{id:'qualitaet',label:'Qualität',color:'#f59e0b'},{id:'versand',label:'Versand',color:'#8b5cf6'},{id:'fertig',label:'Fertig',color:'#10b981'}];
+const TODAY=new Date('2026-04-23');
+const STATUS_COLORS=['#94a3b8','#3b82f6','#f59e0b','#8b5cf6','#10b981','#ef4444','#06b6d4','#f97316','#84cc16','#ec4899'];
+
+/* ─── SEED DATA ─── */
+const INIT_CLIENTS=[
+  {id:'c1',name:'H&M Group',address:'Mäster Samuelsgatan 46A',city:'Stockholm',zip:'10638',country:'Schweden',email:'orders@hm.com',phone:'+46 8 796 55 00',website:'hm.com',contact:'Anna Lindqvist',extra:[]},
+  {id:'c2',name:'Zara DE',address:'Avenida de la Diputación',city:'Arteixo',zip:'15142',country:'Spanien',email:'production@zara.de',phone:'+49 89 1234567',website:'zara.com',contact:'Carlos Méndez',extra:[]},
+  {id:'c3',name:'Patagonia EU',address:'259 W Santa Clara St',city:'Ventura',zip:'93001',country:'USA',email:'supply@patagonia.eu',phone:'+1 805 643 8616',website:'patagonia.com',contact:'Lisa Hanauer',extra:[]},
+  {id:'c4',name:'Hugo Boss',address:'Dieselstraße 12',city:'Metzingen',zip:'72555',country:'Deutschland',email:'orders@hugoboss.com',phone:'+49 7123 94-0',website:'hugoboss.com',contact:'Markus Bauer',extra:[]},
+];
+const INIT_PROJECTS=[
+  {id:'p1',title:'Jersey-Shirts Kollektion',clientId:'c1',coverColor:'#e0e7ff',coverImg:null,tags:[{id:'tg1',label:'Jersey',color:'#ddd6fe'},{id:'tg2',label:'SS26',color:'#bbf7d0'}],priority:'hoch',column:'anfrage',deadline:'2026-05-10',description:'<p>Basis Jersey-Shirts für die <strong>Sommerkollektion 2026</strong>.</p><ul><li>Material: 100% Bio-Baumwolle</li><li>Farbpalette: 6 Farben</li></ul>',tasks:[{id:'t1',text:'Schnittmuster erstellen',done:true},{id:'t2',text:'Materialbestellung',done:false},{id:'t3',text:'Nähprobe',done:false}],customFields:[{id:'f1',type:'number',label:'Stückzahl',value:'2400'},{id:'f2',type:'number',label:'Laufmeter',value:'1200'},{id:'f3',type:'date',label:'Lieferdatum',value:'2026-05-10'}]},
+  {id:'p2',title:'Denim-Jacken Linie',clientId:'c2',coverColor:'#e0f2fe',coverImg:null,tags:[{id:'tg3',label:'Denim',color:'#bfdbfe'},{id:'tg4',label:'AW26',color:'#fde68a'}],priority:'mittel',column:'produktion',deadline:'2026-06-15',description:'<p>Premium Denim Jacken für <em>Herbst/Winter 2026</em>.</p>',tasks:[{id:'t4',text:'Musterstück abgenommen',done:true},{id:'t5',text:'Produktion Linie 3',done:false}],customFields:[{id:'f4',type:'number',label:'Stückzahl',value:'800'}]},
+  {id:'p3',title:'Bio Tees Kapselkollektion',clientId:'c3',coverColor:'#d1fae5',coverImg:null,tags:[{id:'tg5',label:'Bio',color:'#bbf7d0'},{id:'tg6',label:'Kapsule',color:'#e9d5ff'}],priority:'hoch',column:'qualitaet',deadline:'2026-04-30',description:'<p>GOTS-zertifizierte Bio-Baumwolle.</p>',tasks:[{id:'t6',text:'Produktion abgeschlossen',done:true},{id:'t7',text:'Farbprüfung',done:false}],customFields:[{id:'f6',type:'number',label:'Stückzahl',value:'1200'}]},
+  {id:'p4',title:'Muster Winterkollektion',clientId:'c4',coverColor:'#fce7f3',coverImg:null,tags:[{id:'tg7',label:'Winter',color:'#bfdbfe'}],priority:'mittel',column:'versand',deadline:'2026-05-02',description:'<p>Musterstücke für die <strong>Präsentation</strong>.</p>',tasks:[{id:'t9',text:'Verpackt',done:true},{id:'t10',text:'Lieferschein erstellt',done:true}],customFields:[{id:'f8',type:'text',label:'Tracking',value:'DHL-12345678'}]},
+  {id:'p5',title:'Leinen-Hemden Premium',clientId:'c2',coverColor:'#fef9c3',coverImg:null,tags:[{id:'tg9',label:'Leinen',color:'#fef9c3'}],priority:'niedrig',column:'anfrage',deadline:'2026-07-01',description:'',tasks:[{id:'t11',text:'Angebot erstellen',done:false}],customFields:[]},
+];
+const INIT_TODOS=[
+  {id:'td1',text:'Angebot H&M für Q3 fertigstellen',done:false,prio:'hoch',deadline:'2026-04-28',note:''},
+  {id:'td2',text:'QA-Bericht Patagonia absenden',done:false,prio:'hoch',deadline:'2026-04-25',note:''},
+  {id:'td3',text:'Materiallieferant Leinen kontaktieren',done:true,prio:'mittel',deadline:'',note:''},
+  {id:'td4',text:'Zertifikat GOTS erneuern',done:false,prio:'niedrig',deadline:'2026-06-01',note:'Bis Q2 erledigen'},
+];
+
+/* ─── HELPERS ─── */
+function daysDiff(d){return d?Math.round((new Date(d)-TODAY)/86400000):null;}
+function fmtDate(d){if(!d)return'–';const x=new Date(d);return`${x.getDate().toString().padStart(2,'0')}.${(x.getMonth()+1).toString().padStart(2,'0')}.${x.getFullYear()}`;}
+function uid(){return 'x'+Math.random().toString(36).slice(2,9);}
+function fmtBytes(b){if(!b)return'';if(b<1024)return b+'B';if(b<1048576)return(b/1024).toFixed(1)+'KB';return(b/1048576).toFixed(1)+'MB';}
+function readFileFn(f){return new Promise(r=>{const fr=new FileReader();fr.onload=e=>r({name:f.name,size:f.size,type:f.type,data:e.target.result});fr.readAsDataURL(f);});}
+function nowISO(){return new Date().toISOString();}
+
+/* ─── IMAGE COMPRESSOR (max 1200px, quality 0.82) ─── */
+function compressImage(dataUrl,maxW=1200,maxH=1200,quality=0.82){
+  return new Promise(r=>{
+    const img=new Image();
+    img.onload=()=>{
+      let {width:w,height:h}=img;
+      const ratio=Math.min(maxW/w,maxH/h,1);
+      w=Math.round(w*ratio);h=Math.round(h*ratio);
+      const c=document.createElement('canvas');c.width=w;c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      r(c.toDataURL('image/jpeg',quality));
+    };
+    img.onerror=()=>r(dataUrl);
+    img.src=dataUrl;
+  });
+}
+
+/* ─── AI CLIENT NAME CHECK ─── */
+async function aiCheckClientName(newName,existingClients){
+  if(!existingClients.length||!newName.trim())return null;
+  try{
+    const names=existingClients.map(c=>c.name).join(', ');
+    const res=await window.claude.complete(`Prüfe ob der neue Kundenname sehr ähnlich zu einem bestehenden Kunden ist.
+Bestehende Kunden: ${names}
+Neuer Name: "${newName}"
+Antworte NUR mit JSON: {"match":"ExistingName"} oder {"match":null}`);
+    const m=res.match(/\{[^}]+\}/);if(!m)return null;
+    return JSON.parse(m[0]).match||null;
+  }catch(e){return null;}
+}
+
+/* ─── FILE PREVIEW ─── */
+function FilePreview({file,onClose}){
+  const isImage=file.type?.startsWith('image/');
+  const isPDF=file.type==='application/pdf';
+  const ext=file.name.split('.').pop()?.toLowerCase();
+  const previewable=isImage||isPDF;
+  const [fit,setFit]=useState('contain'); // 'contain' | 'cover' | 'height'
+  const [pdfUrl,setPdfUrl]=useState(null);
+  const ICONS={eps:'✏️',ai:'✏️',dst:'🧵',pdf:'📄',jpg:'🖼',jpeg:'🖼',png:'🖼',gif:'🖼',svg:'🖼',webp:'🖼'};
+
+  useEffect(()=>{
+    if(!isPDF||!file.data)return;
+    try{
+      const b64=file.data.split(',')[1];
+      const bytes=atob(b64);
+      const arr=new Uint8Array(bytes.length);
+      for(let i=0;i<bytes.length;i++)arr[i]=bytes.charCodeAt(i);
+      const blob=new Blob([arr],{type:'application/pdf'});
+      const url=URL.createObjectURL(blob);
+      setPdfUrl(url);
+      return()=>URL.revokeObjectURL(url);
+    }catch(e){setPdfUrl(file.data);}
+  },[file.data,isPDF]);
+
+  const imgStyle={
+    contain:{maxWidth:'100%',maxHeight:'70vh',objectFit:'contain',borderRadius:6,boxShadow:'0 4px 20px rgba(0,0,0,0.15)'},
+    cover:{width:'70vw',height:'70vh',objectFit:'cover',borderRadius:6,boxShadow:'0 4px 20px rgba(0,0,0,0.15)'},
+    height:{height:'75vh',width:'auto',maxWidth:'80vw',objectFit:'contain',borderRadius:6,boxShadow:'0 4px 20px rgba(0,0,0,0.15)'},
+  };
+
+  return <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:500}} onClick={onClose}>
+    <div style={{background:'#fff',borderRadius:12,overflow:'hidden',maxWidth:'90vw',maxHeight:'90vh',display:'flex',flexDirection:'column',boxShadow:'0 20px 60px rgba(0,0,0,0.3)',minWidth:340}} onClick={e=>e.stopPropagation()}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 16px',borderBottom:'1px solid #e4e4e7',flexShrink:0,gap:8}}>
+        <span style={{fontWeight:600,fontSize:13,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}>{file.name}</span>
+        {isImage&&<div style={{display:'flex',gap:3,background:'#f4f4f5',borderRadius:6,padding:2}} onClick={e=>e.stopPropagation()}>
+          {[['contain','Eingepasst'],['cover','Ausfüllen'],['height','Volle Höhe']].map(([v,l])=>
+            <button key={v} onClick={e=>{e.stopPropagation();setFit(v);}} style={{padding:'4px 9px',borderRadius:4,border:'none',fontSize:10,fontWeight:600,cursor:'pointer',background:fit===v?'#18181b':'transparent',color:fit===v?'#fff':'#71717a',transition:'all .12s'}}>{l}</button>)}
+        </div>}
+        <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
+          <span style={{fontSize:11,color:'#a1a1aa'}}>{fmtBytes(file.size)}</span>
+          <button onClick={()=>{const a=document.createElement('a');a.href=file.data;a.download=file.name;a.click();}} style={{background:'#f4f4f5',border:'none',borderRadius:6,padding:'4px 10px',fontSize:11,fontWeight:500,color:'#52525b'}}>↓</button>
+          <button onClick={onClose} style={{background:'none',border:'none',fontSize:18,color:'#71717a',padding:'0 2px',lineHeight:1}}>×</button>
+        </div>
+      </div>
+      <div style={{flex:1,overflow:'auto',display:'flex',alignItems:'center',justifyContent:'center',padding:16,minHeight:200,background:'#2a2a2a'}}>
+        {isImage&&<img src={file.data} alt={file.name} style={imgStyle[fit]||imgStyle.contain}/>}
+        {isPDF&&pdfUrl&&<iframe src={pdfUrl} style={{width:'75vw',height:'75vh',border:'none',borderRadius:6,background:'#fff'}} title={file.name}/>}
+        {isPDF&&!pdfUrl&&<div style={{color:'#fff',fontSize:12}}>Lade PDF…</div>}
+        {!previewable&&<div style={{textAlign:'center',padding:40}}>
+          <div style={{fontSize:56,marginBottom:12}}>{ICONS[ext]||'📎'}</div>
+          <div style={{fontWeight:600,fontSize:14,marginBottom:4,color:'#fff'}}>{file.name}</div>
+          <div style={{fontSize:11,color:'#a1a1aa',marginBottom:16}}>
+            {ext==='dst'?'Stickmuster-Datei (DST) — keine Browservorschau':ext==='eps'||ext==='ai'?'Vektorgrafik (EPS/AI) — keine Browservorschau':'Keine Vorschau verfügbar'}
+          </div>
+          <button onClick={()=>{const a=document.createElement('a');a.href=file.data;a.download=file.name;a.click();}} style={{background:'#fff',color:'#18181b',border:'none',borderRadius:7,padding:'8px 18px',fontSize:12,fontWeight:600}}>Herunterladen</button>
+        </div>}
+      </div>
+    </div>
+  </div>;
+}
+
+/* ─── FILE ROW (with rename + preview) ─── */
+function FileRow({file,projects,onRemove,onRename,onPreview,onSetCover,showProject=true}){
+  const [editing,setEditing]=useState(false);
+  const [name,setName]=useState(file.name);
+  const inputRef=useRef();
+  useEffect(()=>{if(editing&&inputRef.current)inputRef.current.focus();},[editing]);
+  function saveName(){setEditing(false);const n=name.trim();if(n&&n!==file.name)onRename(n);}
+  const proj=projects?.find(p=>p.id===file.projectId);
+  const ext=file.name.split('.').pop()?.toLowerCase();
+  const isImage=file.type?.startsWith('image/');
+  const ICONS={eps:'✏️',ai:'✏️',dst:'🧵',pdf:'📄'};
+  return <div style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',background:'#fafafa',borderRadius:6,border:'1px solid #e4e4e7',group:'file'}}>
+    <button onClick={()=>onPreview&&onPreview(file)} style={{width:28,height:28,borderRadius:5,background:'#e0e7ff',border:'none',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:13,cursor:'pointer',position:'relative',overflow:'hidden'}}>
+      {isImage&&file.data?<img src={file.data} style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:4}} alt=""/>:(ICONS[ext]||'📄')}
+    </button>
+    <div style={{flex:1,minWidth:0}}>
+      {editing
+        ?<input ref={inputRef} value={name} onChange={e=>setName(e.target.value)} onBlur={saveName} onKeyDown={e=>{if(e.key==='Enter')saveName();if(e.key==='Escape'){setEditing(false);setName(file.name);}}} style={{width:'100%',fontSize:11,fontWeight:500,border:'1px solid #5b5bd6',borderRadius:4,padding:'2px 5px',outline:'none'}}/>
+        :<div onClick={()=>onPreview&&onPreview(file)} style={{fontSize:11,fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',cursor:'pointer',color:'#18181b'}}>{file.name}</div>}
+      <div style={{display:'flex',gap:5,alignItems:'center',marginTop:1}}>
+        <span style={{fontSize:9,color:'#a1a1aa'}}>{fmtBytes(file.size)}</span>
+        {showProject&&proj&&<span style={{fontSize:9,color:'#52525b',background:'#f0f0f0',padding:'1px 5px',borderRadius:3,fontWeight:500}}>📁 {proj.title}</span>}
+        {showProject&&!proj&&file.clientId&&<span style={{fontSize:9,color:'#a1a1aa',padding:'1px 4px',borderRadius:3}}>Kein Projekt</span>}
+      </div>
+    </div>
+    <div style={{display:'flex',gap:3,flexShrink:0}}>
+      <button onClick={()=>{setEditing(true);setName(file.name);}} title="Umbenennen" style={{background:'none',border:'1px solid #e4e4e7',borderRadius:4,padding:'2px 5px',fontSize:10,color:'#71717a'}}>✎</button>
+      {onSetCover&&isImage&&<button onClick={onSetCover} title="Als Titelbild setzen" style={{background:'none',border:'1px solid #e4e4e7',borderRadius:4,padding:'2px 6px',fontSize:11,color:'#71717a'}} >⊡</button>}
+      <button onClick={()=>{const a=document.createElement('a');a.href=file.data;a.download=file.name;a.click();}} title="Download" style={{background:'none',border:'1px solid #e4e4e7',borderRadius:4,padding:'2px 6px',fontSize:10,color:'#52525b',fontWeight:500}}>↓</button>
+      {onRemove&&<button onClick={onRemove} style={{background:'none',border:'none',color:'#d4d4d8',fontSize:14,padding:'0 2px'}}>×</button>}
+    </div>
+  </div>;
+}
+
+/* ─── STATUS MANAGER MODAL ─── */
+function StatusManager({statuses,setStatuses,onClose}){
+  const [items,setItems]=useState(statuses.map(s=>({...s})));
+  const [dragIdx,setDragIdx]=useState(null);
+  const [overIdx,setOverIdx]=useState(null);
+  function update(id,k,v){setItems(prev=>prev.map(s=>s.id===id?{...s,[k]:v}:s));}
+  function add(){setItems(prev=>[...prev,{id:uid(),label:'Neuer Status',color:STATUS_COLORS[prev.length%STATUS_COLORS.length]}]);}
+  function remove(id){setItems(prev=>prev.filter(s=>s.id!==id));}
+  function save(){setStatuses(items.filter(s=>s.label.trim()));onClose();}
+  function onDrop(toIdx){
+    if(dragIdx===null||dragIdx===toIdx)return;
+    const next=[...items];
+    const [moved]=next.splice(dragIdx,1);
+    next.splice(toIdx,0,moved);
+    setItems(next);setDragIdx(null);setOverIdx(null);
+  }
+  return <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.35)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:400}} onClick={onClose}>
+    <div style={{background:'#fff',borderRadius:12,width:420,overflow:'hidden',boxShadow:'0 16px 48px rgba(0,0,0,0.18)',maxHeight:'80vh',display:'flex',flexDirection:'column'}} onClick={e=>e.stopPropagation()}>
+      <div style={{padding:'16px 20px',borderBottom:'1px solid #e4e4e7',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+        <span style={{fontWeight:700,fontSize:15}}>Status verwalten</span>
+        <div style={{fontSize:11,color:'#a1a1aa'}}>Reihenfolge per Drag ändern</div>
+        <button onClick={onClose} style={{background:'none',border:'none',fontSize:18,color:'#71717a',padding:0}}>×</button>
+      </div>
+      <div style={{flex:1,overflow:'auto',padding:'12px 20px',display:'flex',flexDirection:'column',gap:6}}>
+        {items.map((s,i)=><div key={s.id}
+          draggable
+          onDragStart={()=>setDragIdx(i)}
+          onDragOver={e=>{e.preventDefault();setOverIdx(i);}}
+          onDragLeave={()=>setOverIdx(null)}
+          onDrop={()=>onDrop(i)}
+          onDragEnd={()=>{setDragIdx(null);setOverIdx(null);}}
+          style={{display:'flex',gap:8,alignItems:'center',padding:'3px 0',borderRadius:6,background:overIdx===i&&dragIdx!==i?'#f0f0ff':'transparent',transition:'background .1s'}}>
+          <span style={{color:'#d4d4d8',cursor:'grab',fontSize:14,padding:'0 2px',userSelect:'none'}}>⠿</span>
+          <input type="color" value={s.color} onChange={e=>update(s.id,'color',e.target.value)} style={{width:28,height:28,borderRadius:5,border:'1px solid #e4e4e7',padding:2,cursor:'pointer',flexShrink:0}}/>
+          <input value={s.label} onChange={e=>update(s.id,'label',e.target.value)} style={{flex:1,fontSize:12,padding:'6px 8px',border:'1px solid #e4e4e7',borderRadius:6,outline:'none'}}/>
+          <button onClick={()=>remove(s.id)} style={{background:'none',border:'none',color:'#d4d4d8',fontSize:16,padding:'0 4px',flexShrink:0}}>×</button>
+        </div>)}
+        <button onClick={add} style={{background:'#f4f4f5',border:'1px dashed #d4d4d8',borderRadius:6,padding:'7px',fontSize:12,color:'#71717a',fontWeight:500,marginTop:4}}>+ Status hinzufügen</button>
+      </div>
+      <div style={{padding:'12px 20px',borderTop:'1px solid #e4e4e7',display:'flex',gap:8,justifyContent:'flex-end'}}>
+        <button onClick={onClose} style={{background:'#f4f4f5',color:'#52525b',border:'none',borderRadius:7,padding:'7px 14px',fontSize:12,fontWeight:500}}>Abbrechen</button>
+        <button onClick={save} style={{background:'#18181b',color:'#fff',border:'none',borderRadius:7,padding:'7px 16px',fontSize:12,fontWeight:700}}>Speichern</button>
+      </div>
+    </div>
+  </div>;
+}
+
+/* ─── SIDEBAR SEARCH ─── */
+function SidebarSearch({projects,clients,files,onOpenProject,onOpenClient,accent}){
+  const [q,setQ]=useState('');
+  const [open,setOpen]=useState(false);
+  const ref=useRef();
+  useEffect(()=>{function h(e){if(ref.current&&!ref.current.contains(e.target))setOpen(false);}document.addEventListener('mousedown',h);return()=>document.removeEventListener('mousedown',h);},[]);
+
+  const results=useMemo(()=>{
+    if(!q.trim()||q.length<2)return null;
+    const s=q.toLowerCase();
+    const ps=projects.filter(p=>p.title.toLowerCase().includes(s)||clients.find(c=>c.id===p.clientId)?.name.toLowerCase().includes(s)).slice(0,5);
+    const cs=clients.filter(c=>c.name.toLowerCase().includes(s)||c.email?.toLowerCase().includes(s)||c.contact?.toLowerCase().includes(s)).slice(0,4);
+    const fs=files.filter(f=>f.name.toLowerCase().includes(s)).slice(0,4);
+    return {projects:ps,clients:cs,files:fs};
+  },[q,projects,clients,files]);
+
+  const hasResults=results&&(results.projects.length+results.clients.length+results.files.length)>0;
+
+  return <div ref={ref} style={{position:'relative',padding:'6px 10px'}}>
+    <div style={{display:'flex',alignItems:'center',gap:6,background:'#f4f4f5',borderRadius:8,padding:'6px 10px',border:`1px solid ${open?accent:'transparent'}`,transition:'border .15s'}}>
+      <span style={{color:'#a1a1aa',fontSize:12,flexShrink:0}}>⌕</span>
+      <input value={q} onChange={e=>{setQ(e.target.value);setOpen(true);}} onFocus={()=>setOpen(true)} placeholder="Suchen…" style={{flex:1,fontSize:11,border:'none',outline:'none',background:'transparent',color:'#18181b'}}/>
+      {q&&<button onClick={()=>{setQ('');setOpen(false);}} style={{background:'none',border:'none',color:'#a1a1aa',fontSize:12,padding:0,lineHeight:1}}>×</button>}
+    </div>
+    {open&&q.length>=2&&<div style={{position:'absolute',left:8,right:8,top:'calc(100% + 2px)',background:'#fff',borderRadius:10,border:'1px solid #e4e4e7',boxShadow:'0 8px 32px rgba(0,0,0,0.14)',zIndex:200,overflow:'hidden',maxHeight:380,overflowY:'auto'}}>
+      {!hasResults&&<div style={{padding:'14px',textAlign:'center',color:'#a1a1aa',fontSize:12}}>Keine Ergebnisse für „{q}"</div>}
+      {results?.projects.length>0&&<div>
+        <div style={{padding:'7px 12px 4px',fontSize:9,fontWeight:700,color:'#a1a1aa',letterSpacing:'0.08em',background:'#fafafa'}}>PROJEKTE</div>
+        {results.projects.map(p=>{const c=clients.find(x=>x.id===p.clientId);return <div key={p.id} onClick={()=>{onOpenProject(p);setOpen(false);setQ('');}} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 12px',cursor:'pointer',borderBottom:'1px solid #f4f4f5'}} onMouseEnter={e=>e.currentTarget.style.background='#f4f4f5'} onMouseLeave={e=>e.currentTarget.style.background=''}>
+          <div style={{width:24,height:24,borderRadius:5,background:p.coverColor||'#e0e7ff',flexShrink:0,overflow:'hidden'}}>{p.coverImg&&<img src={p.coverImg} style={{width:'100%',height:'100%',objectFit:'cover'}} alt=""/>}</div>
+          <div><div style={{fontSize:11,fontWeight:600}}>{p.title}</div><div style={{fontSize:10,color:'#71717a'}}>{c?.name||''}</div></div>
+        </div>;})}
+      </div>}
+      {results?.clients.length>0&&<div>
+        <div style={{padding:'7px 12px 4px',fontSize:9,fontWeight:700,color:'#a1a1aa',letterSpacing:'0.08em',background:'#fafafa'}}>KUNDEN</div>
+        {results.clients.map(c=><div key={c.id} onClick={()=>{onOpenClient(c);setOpen(false);setQ('');}} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 12px',cursor:'pointer',borderBottom:'1px solid #f4f4f5'}} onMouseEnter={e=>e.currentTarget.style.background='#f4f4f5'} onMouseLeave={e=>e.currentTarget.style.background=''}>
+          <span style={{fontSize:16,flexShrink:0}}>◎</span>
+          <div><div style={{fontSize:11,fontWeight:600}}>{c.name}</div><div style={{fontSize:10,color:'#71717a'}}>{c.email||c.city||''}</div></div>
+        </div>)}
+      </div>}
+      {results?.files.length>0&&<div>
+        <div style={{padding:'7px 12px 4px',fontSize:9,fontWeight:700,color:'#a1a1aa',letterSpacing:'0.08em',background:'#fafafa'}}>DATEIEN</div>
+        {results.files.map(f=>{const ext=f.name.split('.').pop()?.toLowerCase();const ICONS={eps:'✏️',ai:'✏️',dst:'🧵',pdf:'📄'};return <div key={f.id} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 12px',cursor:'pointer',borderBottom:'1px solid #f4f4f5'}} onMouseEnter={e=>e.currentTarget.style.background='#f4f4f5'} onMouseLeave={e=>e.currentTarget.style.background=''}>
+          <div style={{width:24,height:24,borderRadius:5,background:'#e0e7ff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,flexShrink:0,overflow:'hidden'}}>
+            {f.type?.startsWith('image/')&&f.data?<img src={f.data} style={{width:'100%',height:'100%',objectFit:'cover'}} alt=""/>:(ICONS[ext]||'📄')}
+          </div>
+          <div><div style={{fontSize:11,fontWeight:600}}>{f.name}</div><div style={{fontSize:10,color:'#71717a'}}>{fmtBytes(f.size)}</div></div>
+        </div>;})}
+      </div>}
+    </div>}
+  </div>;
+}
+
+/* ─── SHARED UI ─── */
+function PriorityDot({p}){return <span style={{width:7,height:7,borderRadius:'50%',background:(PRIO[p]||PRIO.niedrig).c,display:'inline-block',flexShrink:0}}/>;}
+function Badge({label,color,bg}){return <span style={{fontSize:10,fontWeight:600,color,background:bg,padding:'2px 7px',borderRadius:4,whiteSpace:'nowrap'}}>{label}</span>;}
+function DeadlineTag({d}){
+  if(!d)return null;const diff=daysDiff(d);let color='#6b7280',bg='#f4f4f5';
+  if(diff<0){color='#ef4444';bg='#fef2f2';}else if(diff<=3){color='#f59e0b';bg='#fffbeb';}
+  return <span style={{fontSize:10,fontWeight:500,color,background:bg,padding:'2px 6px',borderRadius:4,whiteSpace:'nowrap'}}>{diff<0?'⚠ ':''}{fmtDate(d)}{diff<0?' (überfällig)':diff===0?' (heute)':diff<=3?' (+'+diff+'d)':''}</span>;
+}
+function TagChip({tag,onRemove,onColorChange,onClick,selected}){
+  const [pick,setPick]=useState(false);
+  const color=tag.color||'#e0e7ff';
+  return <span style={{position:'relative',display:'inline-flex',alignItems:'center',gap:3,fontSize:10,fontWeight:600,background:selected?color:color,color:'#3f3f46',padding:'2px 7px',borderRadius:10,userSelect:'none',border:selected?'2px solid rgba(0,0,0,0.2)':'2px solid transparent',cursor:onClick?'pointer':'default'}} onClick={onClick}>
+    {onColorChange&&<span onMouseDown={e=>{e.preventDefault();e.stopPropagation();setPick(v=>!v);}} style={{width:8,height:8,borderRadius:'50%',background:color,border:'1.5px solid rgba(0,0,0,0.18)',cursor:'pointer',flexShrink:0}}/>}
+    {tag.label||tag}
+    {onRemove&&<span onClick={e=>{e.stopPropagation();onRemove();}} style={{cursor:'pointer',color:'rgba(0,0,0,0.35)',fontSize:11,marginLeft:1}}>×</span>}
+    {pick&&onColorChange&&<div style={{position:'absolute',top:'100%',left:0,zIndex:50,background:'#fff',borderRadius:8,border:'1px solid #e4e4e7',boxShadow:'0 4px 16px rgba(0,0,0,0.12)',padding:'8px',width:186,marginTop:2}}>
+      <div style={{fontSize:9,fontWeight:700,color:'#a1a1aa',marginBottom:5}}>FARBE</div>
+      <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>{TAG_PALETTE.map(c=><button key={c} onClick={()=>{onColorChange(c);setPick(false);}} style={{width:22,height:22,borderRadius:5,background:c,border:'2px solid rgba(0,0,0,0.06)',cursor:'pointer'}}/>)}</div>
+    </div>}
+  </span>;
+}
+/* ─── RESIZABLE COVER ─── */
+function ResizableCover({project,onSaveHeight,onUploadImage}){
+  const fit='full';
+  const [h,setH]=useState(project.coverHeight||72);
+  const [dragOver,setDragOver]=useState(false);
+  const dragging=useRef(false);const startY=useRef(0);const startH=useRef(0);
+  useEffect(()=>{setH(project.coverHeight||72);},[project.coverHeight]);
+
+  function onMouseDown(e){
+    if(fit==='full')return;
+    e.preventDefault();dragging.current=true;startY.current=e.clientY;startH.current=h;
+    function onMove(e){if(!dragging.current)return;const diff=e.clientY-startY.current;const next=Math.max(32,Math.min(260,startH.current+diff));setH(next);}
+    function onUp(e){if(!dragging.current)return;dragging.current=false;const diff=e.clientY-startY.current;const next=Math.max(32,Math.min(260,startH.current+diff));onSaveHeight(next);document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);}
+    document.addEventListener('mousemove',onMove);document.addEventListener('mouseup',onUp);
+  }
+
+  function onDrop(e){
+    e.preventDefault();setDragOver(false);
+    const file=Array.from(e.dataTransfer.files).find(f=>f.type.startsWith('image/'));
+    if(file&&onUploadImage){const fr=new FileReader();fr.onload=async ev=>{const compressed=await compressImage(ev.target.result);onUploadImage(compressed);};fr.readAsDataURL(file);}
+  }
+
+  const coverH=fit==='full'&&project.coverImg?undefined:h;
+  const isFullMode=fit==='full'&&project.coverImg;
+
+  return <div style={{position:'relative',width:'100%',flexShrink:0}}
+    onDragOver={e=>{e.preventDefault();setDragOver(true);}}
+    onDragLeave={()=>setDragOver(false)}
+    onDrop={onDrop}>
+    <div style={{width:'100%',height:isFullMode?undefined:h,overflow:'hidden',borderRadius:'7px 7px 0 0',background:project.coverColor||'#e0e7ff',transition:'outline .15s',outline:dragOver?'2.5px dashed #10b981':'2.5px solid transparent',position:'relative'}}>
+      {project.coverImg?<img src={project.coverImg} alt="" style={{width:'100%',height:isFullMode?'auto':'100%',objectFit:fit==='contain'?'contain':'cover',objectPosition:'center',display:'block'}}/>
+      :<div style={{width:'100%',height:'100%',background:`linear-gradient(135deg,${project.coverColor||'#e0e7ff'},${(project.coverColor||'#e0e7ff')}99)`}}/>}
+      {dragOver&&<div style={{position:'absolute',inset:0,background:'rgba(16,185,129,0.15)',display:'flex',alignItems:'center',justifyContent:'center',borderRadius:'7px 7px 0 0'}}>
+        <span style={{background:'#10b981',color:'#fff',borderRadius:8,padding:'6px 14px',fontSize:12,fontWeight:700}}>🖼 Bild loslassen</span>
+      </div>}
+    </div>
+    {/* drag-to-resize handle */}
+    {!isFullMode&&<div onMouseDown={onMouseDown} style={{position:'absolute',bottom:0,left:0,right:0,height:10,cursor:'ns-resize',display:'flex',alignItems:'center',justifyContent:'center',opacity:0,transition:'opacity .15s'}}
+      onMouseEnter={e=>e.currentTarget.style.opacity='1'} onMouseLeave={e=>e.currentTarget.style.opacity='0'}>
+      <div style={{width:32,height:4,borderRadius:2,background:'rgba(255,255,255,0.9)',boxShadow:'0 1px 4px rgba(0,0,0,0.25)'}}/>
+    </div>}
+    {dragOver&&<div style={{position:'absolute',top:6,left:'50%',transform:'translateX(-50%)',background:'rgba(0,0,0,0.5)',color:'#fff',borderRadius:5,padding:'2px 8px',fontSize:10,fontWeight:600,whiteSpace:'nowrap',pointerEvents:'none'}}>PNG / JPG / WebP</div>}
+  </div>;
+}
+
+/* ─── FIELD LIST with drag reorder ─── */
+function FieldList({fields,accent,onUpdate,onUpdateLabel,onDuplicate,onRemove,onReorder,onToggleVisible}){
+  const [dragIdx,setDragIdx]=useState(null);
+  const [overIdx,setOverIdx]=useState(null);
+  function drop(toIdx){
+    if(dragIdx===null||dragIdx===toIdx)return;
+    const next=[...fields];const [m]=next.splice(dragIdx,1);next.splice(toIdx,0,m);
+    onReorder(next);setDragIdx(null);setOverIdx(null);
+  }
+  return <div style={{background:'#fafafa',borderRadius:7,border:'1px solid #e4e4e7',overflow:'hidden',marginBottom:0}}>
+    {fields.map((f,i)=><div key={f.id} draggable
+      onDragStart={()=>setDragIdx(i)} onDragOver={e=>{e.preventDefault();setOverIdx(i);}} onDragLeave={()=>setOverIdx(null)} onDrop={()=>drop(i)} onDragEnd={()=>{setDragIdx(null);setOverIdx(null);}}
+      style={{display:'grid',gridTemplateColumns:'18px 1fr 1.4fr auto auto auto',borderBottom:i<fields.length-1?'1px solid #e4e4e7':'none',alignItems:'center',background:overIdx===i&&dragIdx!==i?'#f0f0ff':'transparent',transition:'background .1s'}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'center',cursor:'grab',color:'#c4c4c4',fontSize:12,height:'100%',paddingLeft:4}} title="Verschieben">⠿</div>
+      <div style={{padding:'6px 8px',borderRight:'1px solid #e4e4e7',display:'flex',alignItems:'center',gap:5}}>
+        <span style={{fontSize:10,color:'#a1a1aa',fontWeight:700,background:'#fff',border:'1px solid #e4e4e7',borderRadius:3,padding:'0 4px',lineHeight:'16px'}}>{FIELD_TYPES.find(ft=>ft.id===f.type)?.icon||'T'}</span>
+        <FieldLabelEdit label={f.label} onChange={lbl=>onUpdateLabel(f.id,lbl)}/>
+      </div>
+      <div style={{padding:'4px 8px'}}>
+        {f.type==='date'?<input type="date" value={f.value||''} onChange={e=>onUpdate(f.id,e.target.value)} style={{width:'100%',fontSize:11,border:'none',outline:'none',background:'transparent',fontFamily:'Outfit'}}/>
+        :<input value={f.value||''} onChange={e=>onUpdate(f.id,e.target.value)} placeholder="Wert…" style={{width:'100%',fontSize:11,border:'none',outline:'none',background:'transparent'}}/>}
+      </div>
+      <button onClick={()=>onDuplicate(f.id)} title="Duplizieren" style={{padding:'0 5px',background:'none',border:'none',color:'#a1a1aa',fontSize:12,height:'100%',cursor:'pointer'}}>⎘</button>
+      <button onClick={()=>onToggleVisible&&onToggleVisible(f.id)} title={f.visible===false?'Im Board anzeigen':'Im Board verstecken'} style={{padding:'0 5px',background:'none',border:`1px solid ${f.visible===false?'#e4e4e7':'#d4d4d8'}`,borderRadius:4,color:f.visible===false?'#d4d4d8':'#6b7280',fontSize:10,height:'70%',cursor:'pointer',fontWeight:600,lineHeight:1}}>{f.visible===false?'□':'■'}</button>
+      <button onClick={()=>onRemove(f.id)} style={{padding:'0 6px',background:'none',border:'none',color:'#d4d4d8',fontSize:14,height:'100%'}}>×</button>
+    </div>)}
+  </div>;
+}
+
+function CoverImage({project,h=72}){
+  if(project.coverImg){
+    return <div style={{width:'100%',overflow:'hidden',flexShrink:0,borderRadius:h>80?6:'7px 7px 0 0',background:'#fff'}}>
+      <img src={project.coverImg} alt="" style={{width:'100%',height:'auto',display:'block'}}/>
+    </div>;
+  }
+  return <div style={{width:'100%',height:h,overflow:'hidden',flexShrink:0,borderRadius:h>80?6:'7px 7px 0 0',background:project.coverImg?'#fff':(project.coverColor||'#e0e7ff')}}>
+    {project.coverImg?<img src={project.coverImg} alt="" style={{width:'100%',height:'100%',objectFit:'cover',objectPosition:'center'}}/>
+    :<div style={{width:'100%',height:'100%',background:`linear-gradient(135deg,${project.coverColor||'#e0e7ff'},${(project.coverColor||'#e0e7ff')}99)`}}/>}
+  </div>;
+}
+
+/* ─── RICH TEXT EDITOR ─── */
+function RichEditor({html,onChange,accent}){
+  const ref=useRef();const [focused,setFocused]=useState(false);
+  useEffect(()=>{if(ref.current&&!focused)ref.current.innerHTML=html||'';},[html,focused]);
+  function exec(cmd){ref.current.focus();document.execCommand(cmd,false,null);onChange(ref.current.innerHTML);}
+  const btn=(cmd,label,title)=><button title={title} onMouseDown={e=>{e.preventDefault();exec(cmd);}} style={{width:26,height:24,border:'1px solid #e4e4e7',borderRadius:4,background:'#fff',color:'#52525b',fontSize:12,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontFamily:'Georgia,serif'}}>{label}</button>;
+  return <div style={{border:`1.5px solid ${focused?accent:'#e4e4e7'}`,borderRadius:7,overflow:'hidden',transition:'border .15s'}}>
+    <div style={{display:'flex',gap:3,padding:'5px 6px',borderBottom:'1px solid #f0f0f0',background:'#fafafa',flexWrap:'wrap'}}>
+      {btn('bold',<b>B</b>,'Fett')}{btn('italic',<i>I</i>,'Kursiv')}{btn('underline',<u>U</u>,'Unterstrichen')}
+      <div style={{width:1,height:16,background:'#e4e4e7',margin:'4px 2px'}}/>
+      {btn('insertUnorderedList','•—','Liste')}{btn('insertOrderedList','1.','Nummeriert')}
+      <div style={{width:1,height:16,background:'#e4e4e7',margin:'4px 2px'}}/>
+      {btn('undo','↩','Rückgängig')}{btn('redo','↪','Wiederholen')}
+    </div>
+    <div ref={ref} contentEditable onFocus={()=>setFocused(true)} onBlur={()=>{setFocused(false);onChange(ref.current.innerHTML);}} onInput={()=>onChange(ref.current.innerHTML)} style={{padding:'9px 10px',fontSize:12,lineHeight:1.65,minHeight:72}}/>
+  </div>;
+}
+
+/* ─── PDF EXPORT ─── */
+function exportPDF(project,client,projectFiles,statuses){
+  const done=project.tasks.filter(t=>t.done).length;
+  const pct=project.tasks.length?Math.round(done/project.tasks.length*100):0;
+  const col=(statuses||INIT_STATUSES).find(c=>c.id===project.column);
+  const prio=PRIO[project.priority]||PRIO.mittel;
+  const coverSection=project.coverImg
+    ? `<div style="width:100%;margin-bottom:16px;border-radius:6px;overflow:hidden;">
+        <img src="${project.coverImg}" style="width:100%;height:auto;max-height:180px;object-fit:contain;object-position:center;display:block;background:${project.coverColor||'#f4f4f5'};" alt=""/>
+      </div>`
+    : project.coverColor
+      ? `<div style="width:100%;height:40px;border-radius:6px;background:linear-gradient(135deg,${project.coverColor},${project.coverColor}99);margin-bottom:16px;"></div>`
+      : '';
+  const customerFields=[['Name',client?.name],['Kontakt',client?.contact],['E-Mail',client?.email],['Telefon',client?.phone],['Website',client?.website],['Adresse',client?.address?`${client.address}, ${client.zip} ${client.city}`:null],...(client?.extra||[]).map(e=>[e.label,e.value])].filter(([,v])=>v);
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body{width:210mm;height:297mm}
+    body{font-family:'Helvetica Neue',Arial,sans-serif;color:#18181b;font-size:10px;padding:14mm 16mm;background:#fff}
+    h1{font-size:16px;font-weight:700;line-height:1.2;margin:2px 0 1px}
+    .label{font-size:7.5px;font-weight:700;letter-spacing:0.08em;color:#9ca3af;text-transform:uppercase;margin-bottom:3px}
+    .badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700}
+    .card{background:#f9fafb;border:1px solid #e5e7eb;border-radius:5px;padding:8px 10px;margin-bottom:8px}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:4px 16px}
+    .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px 16px}
+    .fl{font-size:9px;color:#6b7280}
+    .fv{font-size:10px;font-weight:500;color:#18181b;word-break:break-word}
+    .task{display:flex;gap:7px;padding:4px 0;border-bottom:1px solid #f3f4f6;align-items:center;font-size:10px}
+    .chk{width:11px;height:11px;border:1.5px solid #d1d5db;border-radius:2px;flex-shrink:0;font-size:8px;display:flex;align-items:center;justify-content:center}
+    .chk.done{background:#10b981;border-color:#10b981;color:#fff}
+    .desc{font-size:10px;line-height:1.55;color:#374151}
+    .desc ul,.desc ol{padding-left:14px}.desc li{margin:1px 0}
+    .pb{height:5px;background:#e5e7eb;border-radius:3px;overflow:hidden;margin-top:5px}
+    .pbf{height:100%;border-radius:3px}
+    .footer{position:fixed;bottom:10mm;left:16mm;right:16mm;border-top:1px solid #e5e7eb;padding-top:5px;display:flex;justify-content:space-between;font-size:8px;color:#9ca3af}
+    @media print{.footer{position:fixed}}
+  </style></head><body>
+  ${coverSection}
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;padding-bottom:10px;border-bottom:1.5px solid #18181b">
+    <div>
+      <div style="font-size:8px;font-weight:700;letter-spacing:0.1em;color:#9ca3af;margin-bottom:3px">TEXTILFLOW — PRODUKTIONSDATENBLATT</div>
+      <h1>${project.title}</h1>
+      <div style="font-size:9px;color:#6b7280;margin-top:2px">${client?.name||''} · ${fmtDate(TODAY.toISOString().split('T')[0])}</div>
+    </div>
+    <div style="text-align:right;flex-shrink:0;margin-left:16px">
+      <span class="badge" style="background:${col?.color}20;color:${col?.color};display:block;margin-bottom:4px">${col?.label||project.column}</span>
+      <span class="badge" style="background:${prio.bg};color:${prio.c}">${prio.label}</span>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+    <div class="card">
+      <div class="label">Kundendaten</div>
+      ${customerFields.map(([l,v])=>`<div style="display:flex;gap:6px;margin-bottom:3px"><span class="fl" style="width:44px;flex-shrink:0">${l}</span><span class="fv">${v}</span></div>`).join('')}
+    </div>
+    <div class="card">
+      <div class="label">Projektdaten</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 10px">
+        <div><div class="fl">Deadline</div><div class="fv">${fmtDate(project.deadline)}</div></div>
+        ${project.customFields.filter(f=>f.value).map(f=>`<div><div class="fl">${f.label}</div><div class="fv">${f.type==='date'?fmtDate(f.value):f.value}</div></div>`).join('')}
+      </div>
+      ${project.tags.length?`<div style="margin-top:6px">${project.tags.map(t=>`<span style="display:inline-block;background:${t.color||'#e0e7ff'};color:#3f3f46;padding:1px 6px;border-radius:8px;font-size:8px;font-weight:600;margin:0 3px 2px 0">${t.label||t}</span>`).join('')}</div>`:''}
+    </div>
+  </div>
+  ${project.description?`<div class="card" style="margin-bottom:10px"><div class="label">Beschreibung</div><div class="desc">${project.description}</div></div>`:''}
+  ${project.tasks.length?`<div class="card" style="margin-bottom:10px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+      <div class="label" style="margin:0">Aufgaben</div>
+      <span style="font-size:9px;color:#6b7280">${done}/${project.tasks.length} · ${pct}%</span>
+    </div>
+    <div class="pb"><div class="pbf" style="width:${pct}%;background:${pct===100?'#10b981':'#5b5bd6'}"></div></div>
+    <div style="margin-top:7px">${project.tasks.map(t=>`<div class="task"><div class="chk${t.done?' done':''}">${t.done?'✓':''}</div><span style="color:${t.done?'#9ca3af':'#18181b'};text-decoration:${t.done?'line-through':'none'}">${t.text}</span></div>`).join('')}</div>
+  </div>`:''}
+  ${projectFiles?.length?`<div class="card"><div class="label">Dateien (${projectFiles.length})</div>${projectFiles.map(f=>`<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:9px;border-bottom:1px solid #f3f4f6"><span>${f.name}</span><span style="color:#9ca3af">${fmtBytes(f.size)}</span></div>`).join('')}</div>`:''}
+  <div class="footer"><span>Textilflow Produktionsdatenblatt</span><span>${project.title} · ${client?.name||''}</span></div>
+  </body></html>`;
+  const w=window.open('','_blank','width=900,height=700');w.document.write(html);w.document.close();setTimeout(()=>{w.focus();w.print();},500);
+}
+
+/* ─── SIDEBAR ─── */
+function Sidebar({nav,setNav,accent,projects,clients,files,onOpenProject,onOpenClient}){
+  const overdue=projects.filter(p=>p.column!=='fertig'&&daysDiff(p.deadline)<0).length;
+  return <div style={{width:208,flexShrink:0,background:'#fff',borderRight:'1px solid #e4e4e7',display:'flex',flexDirection:'column'}}>
+    <div style={{padding:'14px 12px 10px',borderBottom:'1px solid #f0f0f0',display:'flex',alignItems:'center',gap:8}}>
+      <div style={{width:28,height:28,borderRadius:7,background:accent,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="5" height="5" rx="1" fill="rgba(255,255,255,0.9)"/><rect x="8" y="1" width="5" height="5" rx="1" fill="rgba(255,255,255,0.6)"/><rect x="1" y="8" width="5" height="5" rx="1" fill="rgba(255,255,255,0.6)"/><rect x="8" y="8" width="5" height="5" rx="1" fill="rgba(255,255,255,0.3)"/></svg>
+      </div>
+      <span style={{fontWeight:700,fontSize:14,letterSpacing:'-0.3px'}}>Textilflow</span>
+    </div>
+    {/* SEARCH */}
+    <SidebarSearch projects={projects} clients={clients} files={files} onOpenProject={onOpenProject} onOpenClient={onOpenClient} accent={accent}/>
+    <div style={{padding:'4px 8px',flex:1}}>
+      {[{id:'projekte',label:'Projekte',icon:'⊞'},{id:'kunden',label:'Kunden',icon:'◎'},{id:'dateien',label:'Dateien',icon:'◫'},{id:'todos',label:'Todo-Liste',icon:'≡'}].map(item=>
+        <button key={item.id} onClick={()=>setNav(item.id)} style={{width:'100%',display:'flex',alignItems:'center',gap:9,padding:'7px 10px',borderRadius:7,border:'none',background:nav===item.id?`${accent}15`:'transparent',color:nav===item.id?accent:'#52525b',fontWeight:nav===item.id?600:400,fontSize:13,textAlign:'left',marginBottom:2}}>
+          <span style={{fontSize:14,color:nav===item.id?accent:'#a1a1aa',width:18,textAlign:'center'}}>{item.icon}</span>
+          {item.label}
+          {item.id==='projekte'&&overdue>0&&<span style={{marginLeft:'auto',background:'#ef4444',color:'#fff',borderRadius:10,padding:'1px 6px',fontSize:9,fontWeight:700}}>{overdue}</span>}
+        </button>)}
+    </div>
+    <div style={{padding:'10px 12px',borderTop:'1px solid #f0f0f0'}}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:5}}>
+        {[['Aktiv',projects.filter(p=>p.column!=='fertig').length,accent],['Fertig',projects.filter(p=>p.column==='fertig').length,'#10b981']].map(([l,v,c])=>
+          <div key={l} style={{background:'#fafafa',borderRadius:6,padding:'5px 8px',textAlign:'center'}}>
+            <div style={{fontSize:15,fontWeight:700,color:c}}>{v}</div>
+            <div style={{fontSize:9,color:'#71717a',fontWeight:500}}>{l}</div>
+          </div>)}
+      </div>
+    </div>
+  </div>;
+}
+
+/* ─── PROJECT CARD ─── */
+function ProjectCard({project,onClick,selected,accent,clients,statuses,onDragStart,onDragEnd,isDragging,files=[]}){
+  const [hov,setHov]=useState(false);
+  const client=clients.find(c=>c.id===project.clientId);
+  const done=project.tasks.filter(t=>t.done).length;
+  const pct=project.tasks.length?Math.round(done/project.tasks.length*100):0;
+  const overdue=project.deadline&&daysDiff(project.deadline)<0&&project.column!=='fertig';
+  const fileCount=files.filter(f=>f.projectId===project.id).length;
+  return <div draggable onDragStart={e=>{e.dataTransfer.effectAllowed='move';onDragStart(project.id);}} onDragEnd={onDragEnd}
+    onClick={()=>onClick(project)} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
+    style={{background:'#fff',borderRadius:8,overflow:'hidden',cursor:'pointer',userSelect:'none',
+      border:`1.5px solid ${selected?accent:overdue?'#fecaca':hov?'#d4d4d8':'#e4e4e7'}`,
+      boxShadow:selected?`0 0 0 2px ${accent}22`:hov?'0 3px 12px rgba(0,0,0,0.09)':'0 1px 3px rgba(0,0,0,0.04)',
+      opacity:1,outline:isDragging?'2px dashed #a1a1aa':'none',outlineOffset:2,transition:'all .15s',flexShrink:0}}>
+    <CoverImage project={project} h={project.coverHeight||72}/>
+    <div style={{padding:'9px 10px'}}>
+      <div style={{display:'flex',alignItems:'flex-start',gap:5,marginBottom:3}}><PriorityDot p={project.priority}/><span style={{fontWeight:600,fontSize:12,lineHeight:1.3,flex:1,textWrap:'pretty'}}>{project.title}</span></div>
+      {client&&<div style={{fontSize:10,color:'#71717a',marginBottom:4}}>{client.name}</div>}
+      {project.tags.length>0&&<div style={{display:'flex',gap:3,flexWrap:'wrap',marginBottom:4}}>{project.tags.slice(0,3).map(t=><TagChip key={t.id||t} tag={t}/>)}</div>}
+      {project.customFields.filter(f=>f.value&&f.visible!==false).map(f=><span key={f.id} style={{display:'inline-block',fontSize:9,background:'#f4f4f5',color:'#52525b',padding:'1px 5px',borderRadius:3,fontWeight:500,marginRight:3,marginBottom:3}}>{f.label}: {f.type==='date'?fmtDate(f.value):f.value}</span>)}
+      {project.tasks.length>0&&<div style={{display:'flex',alignItems:'center',gap:5,marginBottom:4}}>
+        <div style={{flex:1,height:2.5,background:'#e4e4e7',borderRadius:2,overflow:'hidden'}}><div style={{width:`${pct}%`,height:'100%',background:pct===100?'#10b981':accent,transition:'width .3s'}}/></div>
+        <span style={{fontSize:9,color:'#71717a',whiteSpace:'nowrap'}}>{done}/{project.tasks.length}</span>
+        {fileCount>0&&<span style={{fontSize:9,color:'#a1a1aa'}}>📎{fileCount}</span>}
+      </div>}
+      {project.deadline&&<DeadlineTag d={project.deadline}/>}
+    </div>
+  </div>;
+}
+
+/* ─── BOARD VIEW ─── */
+function BoardView({projects,clients,files,statuses,onCardClick,selectedId,accent,sortBy,onMoveProject,customOrder,onCustomOrder}){
+  const [dragId,setDragId]=useState(null);
+  const [overCol,setOverCol]=useState(null);
+  const [insertIdx,setInsertIdx]=useState(null); // index to insert before in that col
+
+  function sorted(arr,colId){
+    if(sortBy==='deadline')return [...arr].sort((a,b)=>(a.deadline||'9')>(b.deadline||'9')?1:-1);
+    if(sortBy==='priority'){const o={hoch:0,mittel:1,niedrig:2};return [...arr].sort((a,b)=>o[a.priority]-o[b.priority]);}
+    if(sortBy==='custom'&&colId){
+      const order=customOrder&&customOrder[colId]||[];
+      if(!order.length)return arr;
+      return [...arr].sort((a,b)=>{
+        const ia=order.indexOf(a.id),ib=order.indexOf(b.id);
+        if(ia===-1&&ib===-1)return 0;if(ia===-1)return 1;if(ib===-1)return -1;return ia-ib;
+      });
+    }
+    return arr;
+  }
+
+  function handleDrop(colId){
+    if(!dragId)return;
+    if(sortBy==='custom'&&onCustomOrder){
+      const dragProject=projects.find(p=>p.id===dragId);
+      const fromCol=dragProject?.column;
+      // Remove from source column order
+      if(fromCol&&fromCol!==colId){
+        const srcIds=sorted(projects.filter(p=>p.column===fromCol),fromCol).filter(p=>p.id!==dragId).map(p=>p.id);
+        onCustomOrder(fromCol,srcIds);
+      }
+      // Insert into target column at insertIdx
+      const targetCards=sorted(projects.filter(p=>p.column===colId),colId).filter(p=>p.id!==dragId);
+      const origIdx=sorted(projects.filter(p=>p.column===colId),colId).findIndex(p=>p.id===dragId);
+      const rawIdx=insertIdx!==null?insertIdx:targetCards.length;
+      const adjIdx=(fromCol===colId&&origIdx!==-1&&origIdx<rawIdx)?rawIdx-1:rawIdx;
+      const newIds=[...targetCards.map(p=>p.id)];
+      newIds.splice(Math.max(0,Math.min(adjIdx,newIds.length)),0,dragId);
+      onCustomOrder(colId,newIds);
+    }
+    onMoveProject(dragId,colId);
+    setDragId(null);setOverCol(null);setInsertIdx(null);
+  }
+
+  return <div style={{display:'flex',gap:12,padding:'14px',height:'100%',overflowX:'auto',overflowY:'hidden',alignItems:'flex-start'}}>
+    {statuses.map(col=>{
+      const cards=sorted(projects.filter(p=>p.column===col.id),col.id);
+      const overdue=cards.filter(p=>p.deadline&&daysDiff(p.deadline)<0).length;
+      const isTarget=overCol===col.id&&dragId&&!cards.find(p=>p.id===dragId);
+      return <div key={col.id} style={{width:222,flexShrink:0,display:'flex',flexDirection:'column',gap:8,maxHeight:'100%'}}
+        onDragOver={e=>{e.preventDefault();setOverCol(col.id);}}
+        onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget)){setOverCol(null);setInsertIdx(null);}}}
+        onDrop={e=>{e.preventDefault();handleDrop(col.id);}}>
+        <div style={{display:'flex',alignItems:'center',gap:5}}>
+          <span style={{width:8,height:8,borderRadius:'50%',background:col.color,flexShrink:0}}/><span style={{fontWeight:700,fontSize:12}}>{col.label}</span>
+          <span style={{background:'#f4f4f5',color:'#71717a',borderRadius:10,padding:'1px 6px',fontSize:10,fontWeight:600}}>{cards.length}</span>
+          {overdue>0&&<span style={{background:'#fef2f2',color:'#ef4444',borderRadius:10,padding:'1px 5px',fontSize:9,fontWeight:700}}>⚠{overdue}</span>}
+        </div>
+        <div style={{flex:1,overflow:'auto',display:'flex',flexDirection:'column',paddingRight:2,borderRadius:8,
+          padding:isTarget?'4px':'0px',border:`2px solid ${isTarget?accent:'transparent'}`,
+          background:isTarget?`${accent}05`:'transparent',transition:'border .1s',minHeight:160,gap:8}}>
+          {cards.map((p,i)=><div key={p.id}
+            onDragOver={e=>{e.preventDefault();e.stopPropagation();setOverCol(col.id);
+              const rect=e.currentTarget.getBoundingClientRect();
+              setInsertIdx(e.clientY<rect.top+rect.height/2?i:i+1);
+            }}>
+            {/* insertion line above */}
+            {overCol===col.id&&insertIdx===i&&dragId&&dragId!==p.id&&<div style={{height:3,background:accent,borderRadius:2,margin:'2px 0',transition:'opacity .1s'}}/>}
+            <ProjectCard project={p} onClick={onCardClick} selected={p.id===selectedId} accent={accent} clients={clients} statuses={statuses} files={files}
+              onDragStart={id=>{setDragId(id);setOverCol(col.id);}}
+              onDragEnd={()=>{setDragId(null);setOverCol(null);setInsertIdx(null);}}
+              isDragging={dragId===p.id}/>
+          </div>)}
+          {/* insertion line at end */}
+          {overCol===col.id&&insertIdx===cards.length&&dragId&&<div style={{height:3,background:accent,borderRadius:2,margin:'2px 0'}}/>}
+          {cards.length===0&&<div style={{border:'1.5px dashed #e4e4e7',borderRadius:8,flex:1,minHeight:140,display:'flex',alignItems:'center',justifyContent:'center',color:'#d4d4d8',fontSize:11,
+            background:isTarget?`${accent}08`:'transparent',borderColor:isTarget?accent:'#e4e4e7',transition:'all .1s'}}>
+            {isTarget?'Hier ablegen':'Leer'}
+          </div>}
+        </div>
+      </div>;
+    })}
+  </div>;
+}
+
+/* ─── SWIMLANE VIEW ─── */
+function SwimlaneView({projects,statuses,onCardClick,selectedId,accent}){
+  return <div style={{flex:1,overflow:'auto',padding:'14px'}}>
+    <div style={{display:'grid',gridTemplateColumns:`88px repeat(${statuses.length},1fr)`,gap:8,marginBottom:8}}>
+      <div/>{statuses.map(col=><div key={col.id} style={{fontWeight:700,fontSize:11,color:'#52525b',textAlign:'center',display:'flex',alignItems:'center',justifyContent:'center',gap:4}}><span style={{width:7,height:7,borderRadius:'50%',background:col.color,flexShrink:0}}/>{col.label}</div>)}
+    </div>
+    {['hoch','mittel','niedrig'].map(p=>{
+      const cfg=PRIO[p];
+      return <div key={p} style={{display:'grid',gridTemplateColumns:`88px repeat(${statuses.length},1fr)`,gap:8,marginBottom:10}}>
+        <div style={{paddingTop:4}}><span style={{fontSize:10,fontWeight:700,color:cfg.c,background:cfg.bg,padding:'3px 7px',borderRadius:5}}>{cfg.label}</span></div>
+        {statuses.map(col=>{
+          const cards=projects.filter(pr=>pr.column===col.id&&pr.priority===p);
+          return <div key={col.id} style={{minHeight:56,background:'#fafafa',borderRadius:7,padding:5,display:'flex',flexDirection:'column',gap:5,border:'1px solid #e4e4e7'}}>
+            {cards.map(pr=>{const d=pr.tasks.filter(t=>t.done).length;const pct=pr.tasks.length?Math.round(d/pr.tasks.length*100):0;return <div key={pr.id} onClick={()=>onCardClick(pr)} style={{background:'#fff',borderRadius:5,padding:'7px 8px',cursor:'pointer',border:`1.5px solid ${pr.id===selectedId?accent:'#e4e4e7'}`}}><div style={{fontWeight:600,fontSize:11,marginBottom:3,lineHeight:1.3}}>{pr.title}</div>{pr.deadline&&<DeadlineTag d={pr.deadline}/>}{pr.tasks.length>0&&<div style={{marginTop:4,height:2,background:'#e4e4e7',borderRadius:2,overflow:'hidden'}}><div style={{width:`${pct}%`,height:'100%',background:pct===100?'#10b981':accent}}/></div>}</div>;})}
+            {cards.length===0&&<div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',color:'#d4d4d8',fontSize:10}}>–</div>}
+          </div>;
+        })}
+      </div>;
+    })}
+  </div>;
+}
+
+/* ─── LIST VIEW ─── */
+function ListView({projects,clients,statuses,onCardClick,selectedId,accent,sortBy}){
+  function sorted(arr){if(sortBy==='deadline')return [...arr].sort((a,b)=>(a.deadline||'9')>(b.deadline||'9')?1:-1);if(sortBy==='priority'){const o={hoch:0,mittel:1,niedrig:2};return [...arr].sort((a,b)=>o[a.priority]-o[b.priority]);}return arr;}
+  return <div style={{flex:1,overflow:'auto',padding:'14px'}}>
+    <div style={{background:'#fff',borderRadius:10,border:'1px solid #e4e4e7',overflow:'hidden'}}>
+      <div style={{display:'grid',gridTemplateColumns:'2fr 1fr 100px 110px 80px 90px',padding:'8px 12px',background:'#fafafa',borderBottom:'1px solid #e4e4e7'}}>
+        {['Projekt','Kunde','Status','Deadline','Prio','Aufgaben'].map(h=><span key={h} style={{fontSize:9,fontWeight:700,color:'#a1a1aa',letterSpacing:'0.07em'}}>{h.toUpperCase()}</span>)}
+      </div>
+      {sorted(projects).map((p,i)=>{
+        const client=clients.find(c=>c.id===p.clientId);const done=p.tasks.filter(t=>t.done).length;const pct=p.tasks.length?Math.round(done/p.tasks.length*100):100;const sel=p.id===selectedId;
+        const colDef=statuses.find(s=>s.id===p.column);
+        return <div key={p.id} onClick={()=>onCardClick(p)} style={{display:'grid',gridTemplateColumns:'2fr 1fr 100px 110px 80px 90px',padding:'9px 12px',borderBottom:i<projects.length-1?'1px solid #f4f4f5':'none',cursor:'pointer',background:sel?`${accent}08`:'#fff',borderLeft:`3px solid ${sel?accent:'transparent'}`}}>
+          <div style={{display:'flex',alignItems:'center',gap:6}}><PriorityDot p={p.priority}/><span style={{fontWeight:600,fontSize:12}}>{p.title}</span></div>
+          <div style={{display:'flex',alignItems:'center',fontSize:11,color:'#71717a'}}>{client?.name||'–'}</div>
+          <div style={{display:'flex',alignItems:'center'}}><span style={{fontSize:10,fontWeight:600,color:colDef?.color||'#52525b',background:`${colDef?.color||'#94a3b8'}18`,padding:'2px 6px',borderRadius:4}}>{colDef?.label||p.column}</span></div>
+          <div style={{display:'flex',alignItems:'center'}}><DeadlineTag d={p.deadline}/></div>
+          <div style={{display:'flex',alignItems:'center'}}><Badge label={(PRIO[p.priority]||PRIO.mittel).label} color={(PRIO[p.priority]||PRIO.mittel).c} bg={(PRIO[p.priority]||PRIO.mittel).bg}/></div>
+          <div style={{display:'flex',alignItems:'center',gap:5}}><div style={{flex:1,height:4,background:'#e4e4e7',borderRadius:2,overflow:'hidden',maxWidth:50}}><div style={{width:`${pct}%`,height:'100%',background:pct===100?'#10b981':accent}}/></div><span style={{fontSize:10,color:'#71717a'}}>{done}/{p.tasks.length}</span></div>
+        </div>;
+      })}
+    </div>
+  </div>;
+}
+
+/* ─── CALENDAR VIEW ─── */
+function CalendarView({projects,statuses,onCardClick,accent}){
+  const [month,setMonth]=useState(new Date(TODAY.getFullYear(),TODAY.getMonth(),1));
+  const y=month.getFullYear(),m=month.getMonth();
+  const first=(new Date(y,m,1).getDay()+6)%7,days=new Date(y,m+1,0).getDate();
+  const cells=[];for(let i=0;i<first;i++)cells.push(null);for(let d=1;d<=days;d++)cells.push(d);
+  const MN=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  function pOn(d){const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;return projects.filter(p=>p.deadline===ds);}
+  function isT(d){return y===TODAY.getFullYear()&&m===TODAY.getMonth()&&d===TODAY.getDate();}
+  return <div style={{flex:1,overflow:'auto',padding:'14px'}}>
+    <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
+      <button onClick={()=>setMonth(new Date(y,m-1,1))} style={{background:'#fff',border:'1px solid #e4e4e7',borderRadius:6,padding:'4px 10px',fontSize:13,color:'#52525b'}}>‹</button>
+      <span style={{fontWeight:700,fontSize:15,minWidth:155,textAlign:'center'}}>{MN[m]} {y}</span>
+      <button onClick={()=>setMonth(new Date(y,m+1,1))} style={{background:'#fff',border:'1px solid #e4e4e7',borderRadius:6,padding:'4px 10px',fontSize:13,color:'#52525b'}}>›</button>
+      <button onClick={()=>setMonth(new Date(TODAY.getFullYear(),TODAY.getMonth(),1))} style={{background:'#f4f4f5',border:'none',borderRadius:6,padding:'4px 10px',fontSize:11,color:'#52525b',fontWeight:500}}>Heute</button>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:6}}>
+      {['Mo','Di','Mi','Do','Fr','Sa','So'].map(d=><div key={d} style={{textAlign:'center',fontSize:10,fontWeight:700,color:'#a1a1aa',padding:'4px 0'}}>{d}</div>)}
+      {cells.map((d,i)=>{const ps=d?pOn(d):[];const today=d&&isT(d);return <div key={i} style={{minHeight:90,background:d?'#fff':'transparent',borderRadius:8,padding:d?'6px 7px':undefined,border:d?(today?`2px solid ${accent}`:'1px solid #e4e4e7'):'none'}}>
+        {d&&<div style={{fontSize:11,fontWeight:today?700:500,color:today?accent:'#52525b',marginBottom:4,display:'flex',alignItems:'center',justifyContent:'space-between'}}>{d}{today&&<span style={{fontSize:9,background:accent,color:'#fff',borderRadius:10,padding:'1px 5px',fontWeight:700}}>Heute</span>}</div>}
+        {ps.map(p=>{const col=statuses.find(c=>c.id===p.column);return <div key={p.id} onClick={()=>onCardClick(p)} style={{fontSize:10,fontWeight:500,padding:'3px 6px',borderRadius:4,marginBottom:3,cursor:'pointer',background:`${col?.color||accent}22`,color:col?.color||accent,border:`1px solid ${col?.color||accent}44`,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.title}</div>;})}
+      </div>;})}
+    </div>
+  </div>;
+}
+
+/* ─── NEW PROJECT MODAL ─── */
+function NewProjectModal({clients,statuses,onSave,onClose,accent}){
+  const [form,setForm]=useState({title:'',clientId:clients[0]?.id||'',priority:'mittel',column:statuses[0]?.id||'anfrage',deadline:'',coverColor:COVER_COLORS[Math.floor(Math.random()*COVER_COLORS.length)]});
+  const f=(k,v)=>setForm(p=>({...p,[k]:v}));
+  return <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.35)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:200}} onClick={onClose}>
+    <div style={{background:'#fff',borderRadius:12,width:440,overflow:'hidden',boxShadow:'0 16px 48px rgba(0,0,0,0.18)'}} onClick={e=>e.stopPropagation()}>
+      <div style={{height:80,background:`linear-gradient(135deg,${form.coverColor},${form.coverColor}bb)`,position:'relative'}}>
+        <div style={{position:'absolute',bottom:8,left:12,display:'flex',gap:4}}>{COVER_COLORS.map(c=><button key={c} onClick={()=>f('coverColor',c)} style={{width:18,height:18,borderRadius:'50%',background:c,border:`2.5px solid ${form.coverColor===c?'#18181b':'rgba(255,255,255,0.7)'}`,cursor:'pointer'}}/>)}</div>
+      </div>
+      <div style={{padding:'16px 20px 20px'}}>
+        <div style={{fontWeight:700,fontSize:15,marginBottom:14}}>Neues Projekt</div>
+        <div style={{display:'flex',flexDirection:'column',gap:10}}>
+          <div><label style={{fontSize:10,fontWeight:700,color:'#a1a1aa',letterSpacing:'0.07em',display:'block',marginBottom:4}}>TITEL *</label>
+            <input value={form.title} onChange={e=>f('title',e.target.value)} placeholder="Projektname…" autoFocus style={{width:'100%',fontSize:13,padding:'7px 10px',border:`1.5px solid ${accent}`,borderRadius:7,outline:'none'}}/></div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+            <div><label style={{fontSize:10,fontWeight:700,color:'#a1a1aa',letterSpacing:'0.07em',display:'block',marginBottom:4}}>KUNDE</label>
+              <select value={form.clientId} onChange={e=>f('clientId',e.target.value)} style={{width:'100%',fontSize:12,padding:'7px 8px',border:'1px solid #e4e4e7',borderRadius:7,background:'#fff',outline:'none',fontFamily:'Outfit'}}>
+                <option value="">– Kein Kunde –</option>{clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+            <div><label style={{fontSize:10,fontWeight:700,color:'#a1a1aa',letterSpacing:'0.07em',display:'block',marginBottom:4}}>DEADLINE</label>
+              <input type="date" value={form.deadline} onChange={e=>f('deadline',e.target.value)} style={{width:'100%',fontSize:12,padding:'7px 8px',border:'1px solid #e4e4e7',borderRadius:7,outline:'none',fontFamily:'Outfit'}}/></div>
+            <div><label style={{fontSize:10,fontWeight:700,color:'#a1a1aa',letterSpacing:'0.07em',display:'block',marginBottom:4}}>PRIORITÄT</label>
+              <select value={form.priority} onChange={e=>f('priority',e.target.value)} style={{width:'100%',fontSize:12,padding:'7px 8px',border:'1px solid #e4e4e7',borderRadius:7,background:'#fff',outline:'none',fontFamily:'Outfit'}}>
+                <option value="hoch">↑ Hoch</option><option value="mittel">→ Mittel</option><option value="niedrig">↓ Niedrig</option></select></div>
+            <div><label style={{fontSize:10,fontWeight:700,color:'#a1a1aa',letterSpacing:'0.07em',display:'block',marginBottom:4}}>STATUS</label>
+              <select value={form.column} onChange={e=>f('column',e.target.value)} style={{width:'100%',fontSize:12,padding:'7px 8px',border:'1px solid #e4e4e7',borderRadius:7,background:'#fff',outline:'none',fontFamily:'Outfit'}}>
+                {statuses.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}</select></div>
+          </div>
+        </div>
+        <div style={{display:'flex',gap:8,marginTop:16,justifyContent:'flex-end'}}>
+          <button onClick={onClose} style={{background:'#f4f4f5',color:'#52525b',border:'none',borderRadius:7,padding:'7px 14px',fontSize:12,fontWeight:500}}>Abbrechen</button>
+          <button onClick={()=>{if(!form.title.trim())return;onSave({id:uid(),...form,tags:[],coverImg:null,description:'',tasks:[],customFields:[]});onClose();}} style={{background:accent,color:'#fff',border:'none',borderRadius:7,padding:'7px 16px',fontSize:12,fontWeight:700}}>Anlegen</button>
+        </div>
+      </div>
+    </div>
+  </div>;
+}
+
+/* ─── PROJECT TITLE EDIT ─── */
+function ProjectTitleEdit({title,onChange}){
+  const [editing,setEditing]=useState(false);
+  const [val,setVal]=useState(title);
+  const ref=useRef();
+  useEffect(()=>{if(editing&&ref.current){ref.current.focus();ref.current.select();}},[editing]);
+  useEffect(()=>setVal(title),[title]);
+  function save(){setEditing(false);const v=val.trim();if(v&&v!==title)onChange(v);else setVal(title);}
+  if(editing) return <input ref={ref} value={val} onChange={e=>setVal(e.target.value)} onBlur={save} onKeyDown={e=>{if(e.key==='Enter')save();if(e.key==='Escape'){setEditing(false);setVal(title);}}} style={{width:'100%',fontSize:14,fontWeight:700,border:'none',borderBottom:'2px solid #5b5bd6',outline:'none',background:'transparent',padding:'1px 0'}}/>;
+  return <div onClick={()=>setEditing(true)} title="Klicken zum Umbenennen" style={{fontSize:14,fontWeight:700,cursor:'text',padding:'1px 0',borderBottom:'1px dashed transparent',transition:'border .15s'}} onMouseEnter={e=>e.currentTarget.style.borderBottomColor='#d4d4d8'} onMouseLeave={e=>e.currentTarget.style.borderBottomColor='transparent'}>{title}</div>;
+}
+
+/* ─── FIELD LABEL EDIT ─── */
+function FieldLabelEdit({label,onChange}){
+  const [editing,setEditing]=useState(false);
+  const [val,setVal]=useState(label);
+  const ref=useRef();
+  useEffect(()=>{if(editing&&ref.current)ref.current.focus();},[editing]);
+  useEffect(()=>setVal(label),[label]);
+  function save(){setEditing(false);const v=val.trim();if(v&&v!==label)onChange(v);}
+  if(editing) return <input ref={ref} value={val} onChange={e=>setVal(e.target.value)} onBlur={save} onKeyDown={e=>{if(e.key==='Enter')save();if(e.key==='Escape'){setEditing(false);setVal(label);}}} style={{fontSize:11,fontWeight:500,border:'none',borderBottom:'1.5px solid #5b5bd6',outline:'none',background:'transparent',width:'100%',padding:'1px 0',color:'#52525b'}}/>;
+  return <span onClick={()=>setEditing(true)} title="Klicken zum Bearbeiten" style={{fontSize:11,color:'#52525b',fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',cursor:'text',borderBottom:'1px dashed transparent'}} onMouseEnter={e=>e.currentTarget.style.borderBottomColor='#d4d4d8'} onMouseLeave={e=>e.currentTarget.style.borderBottomColor='transparent'}>{label}</span>;
+}
+
+/* ─── PROJECT DETAIL PANEL ─── */
+function ProjectDetail({project:initProj,projects,setProjects,clients,setClients,files,setFiles,statuses,onClose,accent}){
+  const proj=projects.find(p=>p.id===initProj.id)||initProj;
+  const [newTask,setNewTask]=useState('');const [editingTaskId,setEditingTaskId]=useState(null);const [editingTaskText,setEditingTaskText]=useState('');
+  const [newTagLabel,setNewTagLabel]=useState('');const [newTagColor,setNewTagColor]=useState(TAG_PALETTE[0]);
+  const [addingField,setAddingField]=useState(false);const [newFieldLabel,setNewFieldLabel]=useState('');const [newFieldType,setNewFieldType]=useState('text');
+  const [coverMenu,setCoverMenu]=useState(false);const [editClient,setEditClient]=useState(false);
+  const [previewFile,setPreviewFile]=useState(null);
+  const fileRef=useRef();const coverRef=useRef();const taskEditRef=useRef();
+  const client=clients.find(c=>c.id===proj.clientId)||{id:null,name:'',email:'',phone:'',address:'',city:'',zip:'',country:'',contact:'',website:'',extra:[]};
+  const projectFiles=files.filter(f=>f.projectId===proj.id);
+
+  useEffect(()=>{if(editingTaskId&&taskEditRef.current)taskEditRef.current.focus();},[editingTaskId]);
+
+  function save(u){setProjects(ps=>ps.map(p=>p.id===proj.id?{...p,...u}:p));}
+  function saveClient(u){if(client.id)setClients(cs=>cs.map(c=>c.id===client.id?{...c,...u}:c));}
+  function toggleTask(id){save({tasks:proj.tasks.map(t=>t.id===id?{...t,done:!t.done}:t)});}
+  function saveTaskEdit(){if(editingTaskId){save({tasks:proj.tasks.map(t=>t.id===editingTaskId?{...t,text:editingTaskText.trim()||t.text}:t)});setEditingTaskId(null);}};
+  function addTask(){if(!newTask.trim())return;save({tasks:[...proj.tasks,{id:uid(),text:newTask.trim(),done:false}]});setNewTask('');}
+  function removeTask(id){save({tasks:proj.tasks.filter(t=>t.id!==id)});}
+  function addTag(){if(!newTagLabel.trim())return;save({tags:[...proj.tags,{id:uid(),label:newTagLabel.trim(),color:newTagColor}]});setNewTagLabel('');}
+  function removeTag(id){save({tags:proj.tags.filter(t=>t.id!==id)});}
+  function changeTagColor(id,color){save({tags:proj.tags.map(t=>t.id===id?{...t,color}:t)});}
+  function addField(){if(!newFieldLabel.trim())return;save({customFields:[...proj.customFields,{id:uid(),type:newFieldType,label:newFieldLabel.trim(),value:''}]});setNewFieldLabel('');setAddingField(false);}
+  function duplicateField(id){const f=proj.customFields.find(x=>x.id===id);if(!f)return;save({customFields:[...proj.customFields,{...f,id:uid(),label:f.label+' (Kopie)'}]});}
+  function updateField(id,val){save({customFields:proj.customFields.map(f=>f.id===id?{...f,value:val}:f)});}
+  function updateFieldLabel(id,label){save({customFields:proj.customFields.map(f=>f.id===id?{...f,label}:f)});}
+  function removeField(id){save({customFields:proj.customFields.filter(f=>f.id!==id)});}
+  async function handleFileUpload(e){const fs=Array.from(e.target.files||[]);const loaded=await Promise.all(fs.map(readFileFn));const newFiles=loaded.map(f=>({...f,id:uid(),clientId:proj.clientId,projectId:proj.id,uploadedAt:nowISO()}));setFiles(prev=>[...prev,...newFiles]);e.target.value='';}
+  async function handleCover(e){const f=e.target.files?.[0];if(!f)return;const l=await readFileFn(f);const compressed=await compressImage(l.data);save({coverImg:compressed});setCoverMenu(false);e.target.value='';}
+  function renameFile(id,name){setFiles(prev=>prev.map(f=>f.id===id?{...f,name}:f));}
+  function removeFile(id){setFiles(prev=>prev.filter(f=>f.id!==id));}
+
+  const done=proj.tasks.filter(t=>t.done).length;
+  const pct=proj.tasks.length?Math.round(done/proj.tasks.length*100):0;
+  const SH=({title,action})=><div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:7}}><span style={{fontSize:9,fontWeight:700,color:'#a1a1aa',letterSpacing:'0.08em'}}>{title.toUpperCase()}</span>{action}</div>;
+
+  const [panelW,setPanelW]=useState(()=>{try{const s=localStorage.getItem('tf_panelW');return s?Math.max(320,Math.min(1100,parseInt(s))):420;}catch(e){return 420;}});
+  const dragRef=useRef(false);
+  function onResizeMouseDown(e){
+    e.preventDefault();dragRef.current=true;const startX=e.clientX;const startW=panelW;
+    function onMove(e){if(!dragRef.current)return;const next=Math.max(320,Math.min(1100,startW-(e.clientX-startX)));setPanelW(next);}
+    function onUp(e){dragRef.current=false;const next=Math.max(320,Math.min(1100,startW-(e.clientX-startX)));try{localStorage.setItem('tf_panelW',String(next));}catch(err){}document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);}
+    document.addEventListener('mousemove',onMove);document.addEventListener('mouseup',onUp);
+  }
+  return <div style={{width:panelW,flexShrink:0,background:'#fff',borderLeft:'1px solid #e4e4e7',display:'flex',flexDirection:'column',overflow:'hidden',position:'relative'}}>
+    {/* Resize handle */}
+    <div onMouseDown={onResizeMouseDown} style={{position:'absolute',left:0,top:0,bottom:0,width:5,cursor:'col-resize',zIndex:10,background:'transparent'}}
+      onMouseEnter={e=>e.currentTarget.style.background='rgba(91,91,214,0.18)'}
+      onMouseLeave={e=>e.currentTarget.style.background='transparent'}/>
+    {previewFile&&<FilePreview file={previewFile} onClose={()=>setPreviewFile(null)}/>}
+    <div style={{position:'relative',flexShrink:0}}>
+      <ResizableCover project={proj} onSaveHeight={h=>save({coverHeight:h})} onUploadImage={data=>save({coverImg:data})}/>
+      <div style={{position:'absolute',top:5,right:5,display:'flex',gap:3}}>
+        <button onClick={()=>setCoverMenu(!coverMenu)} style={{background:'rgba(255,255,255,0.88)',border:'none',borderRadius:5,padding:'3px 7px',fontSize:10,fontWeight:600,color:'#52525b',backdropFilter:'blur(4px)'}}>Bild</button>
+        <button onClick={()=>exportPDF(proj,client,projectFiles,statuses)} style={{background:'rgba(255,255,255,0.88)',border:'none',borderRadius:5,padding:'3px 7px',fontSize:10,fontWeight:600,color:'#52525b',backdropFilter:'blur(4px)'}}>⬇ PDF</button>
+        <button onClick={onClose} style={{background:'rgba(255,255,255,0.88)',border:'none',borderRadius:5,padding:'3px 7px',fontSize:14,color:'#52525b',lineHeight:1,backdropFilter:'blur(4px)'}}>×</button>
+      </div>
+      {coverMenu&&<div style={{position:'absolute',top:34,right:5,background:'#fff',borderRadius:8,border:'1px solid #e4e4e7',boxShadow:'0 4px 16px rgba(0,0,0,0.12)',padding:'10px',zIndex:10,width:210}} onClick={e=>e.stopPropagation()}>
+        <div style={{fontSize:10,fontWeight:700,color:'#a1a1aa',marginBottom:6}}>FARBE</div>
+        <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:8}}>{COVER_COLORS.map(c=><button key={c} onClick={()=>{save({coverColor:c,coverImg:null});setCoverMenu(false);}} style={{width:22,height:22,borderRadius:5,background:c,border:`2px solid ${proj.coverColor===c&&!proj.coverImg?'#18181b':'transparent'}`,cursor:'pointer'}}/>)}</div>
+        {proj.coverImg&&<></>}
+        <button onClick={()=>coverRef.current?.click()} style={{width:'100%',background:'#f4f4f5',border:'none',borderRadius:6,padding:'6px',fontSize:11,fontWeight:500,color:'#52525b'}}>Bild hochladen</button>
+        {proj.coverImg&&<button onClick={()=>save({coverImg:null})} style={{width:'100%',background:'none',border:'none',padding:'5px',fontSize:10,color:'#a1a1aa',cursor:'pointer',marginTop:2}}>Bild entfernen</button>}
+        <input ref={coverRef} type="file" accept="image/*" style={{display:'none'}} onChange={handleCover}/>
+      </div>}
+    </div>
+    <div style={{padding:'10px 14px 6px',flexShrink:0,borderBottom:'1px solid #f0f0f0'}}>
+      <div style={{display:'flex',alignItems:'center',gap:6}}>
+        <div style={{flex:1}}><ProjectTitleEdit title={proj.title} onChange={t=>save({title:t})}/></div>
+        <div style={{display:'flex',gap:2,flexShrink:0}}>
+          {[['niedrig','N','#10b981','#f0fdf4'],['mittel','M','#f59e0b','#fffbeb'],['hoch','H','#ef4444','#fef2f2']].map(([v,l,c,bg])=>
+            <button key={v} onClick={()=>save({priority:v})} style={{width:26,height:26,borderRadius:5,border:`1.5px solid ${proj.priority===v?c:'#e4e4e7'}`,background:proj.priority===v?bg:'#fff',color:proj.priority===v?c:'#a1a1aa',fontSize:10,fontWeight:700,cursor:'pointer',transition:'all .12s'}}>{l}</button>)}
+        </div>
+      </div>
+    </div>
+    <div style={{flex:1,overflow:'auto',padding:'12px 14px 16px'}}>
+      {/* TOP TWO-COLUMN: Bild/Kunde + Felder/Tags */}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:14}}>
+        {/* LEFT: Kundendaten */}
+        <div>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:7}}>
+            <span style={{fontSize:9,fontWeight:700,color:'#a1a1aa',letterSpacing:'0.08em'}}>KUNDENDATEN</span>
+            <button onClick={()=>setEditClient(!editClient)} style={{fontSize:10,fontWeight:600,color:accent,background:'none',border:'none',padding:0,cursor:'pointer'}}>{editClient?'Fertig':'Bearbeiten'}</button>
+          </div>
+          {editClient?<div style={{display:'flex',flexDirection:'column',gap:4}}>
+            {[['name','Name'],['contact','Kontakt'],['email','E-Mail'],['phone','Telefon'],['website','Website'],['address','Adresse'],['zip','PLZ'],['city','Stadt'],['country','Land']].map(([k,l])=><div key={k} style={{display:'flex',gap:6,alignItems:'center'}}><span style={{fontSize:10,color:'#a1a1aa',width:52,flexShrink:0}}>{l}</span><input value={client[k]||''} onChange={e=>saveClient({[k]:e.target.value})} style={{flex:1,fontSize:11,padding:'4px 7px',border:'1px solid #e4e4e7',borderRadius:5,outline:'none'}}/></div>)}
+          </div>:<div style={{display:'flex',flexDirection:'column',gap:3}}>
+            {[['Name',client.name,true],['Kontakt',client.contact],['E-Mail',client.email],['Telefon',client.phone],['Website',client.website],['Adresse',client.address?`${client.address}${client.city?', '+client.zip+' '+client.city:''}`:null]].filter(([,v])=>v).map(([l,v,b])=><div key={l} style={{display:'flex',gap:6,fontSize:11}}><span style={{color:'#a1a1aa',width:52,flexShrink:0,fontSize:10}}>{l}</span><span style={{fontWeight:b?600:400,flex:1,wordBreak:'break-word'}}>{v}</span></div>)}
+          </div>}
+        </div>
+        {/* RIGHT: Tags + Status + Felder */}
+        <div>
+          <div style={{marginBottom:10}}>
+            <div style={{fontSize:9,fontWeight:700,color:'#a1a1aa',letterSpacing:'0.08em',marginBottom:5}}>TAGS</div>
+            <div style={{display:'flex',gap:3,flexWrap:'wrap',alignItems:'center'}}>
+              {proj.tags.map(t=><TagChip key={t.id} tag={t} onRemove={()=>removeTag(t.id)} onColorChange={c=>changeTagColor(t.id,c)}/>)}
+              <div style={{display:'flex',gap:2,alignItems:'center',border:'1px dashed #d4d4d8',borderRadius:10,overflow:'hidden',background:'#fff'}}>
+                <input value={newTagLabel} onChange={e=>setNewTagLabel(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addTag()} placeholder="+ Tag" style={{fontSize:10,padding:'2px 6px',border:'none',outline:'none',width:54,background:'transparent'}}/>
+                <button onClick={()=>setNewTagColor(TAG_PALETTE[(TAG_PALETTE.indexOf(newTagColor)+1)%TAG_PALETTE.length])} style={{width:14,height:14,borderRadius:'50%',background:newTagColor,border:'1.5px solid rgba(0,0,0,0.1)',margin:'0 4px 0 0',flexShrink:0,cursor:'pointer'}}/>
+              </div>
+              {newTagLabel&&<button onClick={addTag} style={{fontSize:10,fontWeight:700,background:accent,color:'#fff',border:'none',borderRadius:8,padding:'2px 7px'}}>+</button>}
+            </div>
+          </div>
+        </div>
+      </div>
+      {/* FELDER */}
+      <div style={{marginBottom:14}}><SH title="Felder" action={<button onClick={()=>setAddingField(v=>!v)} style={{fontSize:10,fontWeight:600,color:accent,background:'none',border:'none',padding:0}}>+ Feld</button>}/>
+        {proj.customFields.length>0&&<FieldList fields={proj.customFields} accent={accent} onUpdate={(id,val)=>updateField(id,val)} onUpdateLabel={(id,lbl)=>updateFieldLabel(id,lbl)} onDuplicate={duplicateField} onRemove={removeField} onReorder={newFields=>save({customFields:newFields})} onToggleVisible={id=>save({customFields:proj.customFields.map(f=>f.id===id?{...f,visible:f.visible===false?true:false}:f)})}/>}
+        {addingField&&<div style={{display:'flex',gap:4,alignItems:'center',background:'#f0f0ff',borderRadius:7,padding:'6px 8px',border:`1px solid ${accent}44`}}>
+          <input value={newFieldLabel} onChange={e=>setNewFieldLabel(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addField()} placeholder="Feldname…" style={{flex:1,fontSize:11,padding:'4px 7px',border:`1.5px solid ${accent}`,borderRadius:5,outline:'none'}}/>
+          <select value={newFieldType} onChange={e=>setNewFieldType(e.target.value)} style={{fontSize:11,padding:'4px',border:'1px solid #e4e4e7',borderRadius:5,background:'#fff',outline:'none',fontFamily:'Outfit'}}>
+            {FIELD_TYPES.map(ft=><option key={ft.id} value={ft.id}>{ft.label}</option>)}
+          </select>
+          <button onClick={addField} style={{background:accent,color:'#fff',border:'none',borderRadius:5,padding:'4px 10px',fontSize:12,fontWeight:700}}>+</button>
+        </div>}
+        {proj.customFields.length===0&&!addingField&&<div onClick={()=>setAddingField(true)} style={{fontSize:11,color:'#a1a1aa',background:'#fafafa',borderRadius:6,padding:'8px 10px',border:'1px dashed #e4e4e7',cursor:'pointer'}}>Felder hinzufügen (z.B. Stückzahl, Laufmeter…)</div>}
+      </div>
+      {/* BESCHREIBUNG */}
+      <div style={{marginBottom:14}}><SH title="Beschreibung"/><RichEditor html={proj.description} onChange={html=>save({description:html})} accent={accent}/></div>
+      {/* AUFGABEN */}
+      <div style={{marginBottom:14}}><SH title={`Aufgaben — ${done}/${proj.tasks.length}`}/>
+        <div style={{height:3,background:'#e4e4e7',borderRadius:2,marginBottom:8,overflow:'hidden'}}><div style={{width:`${pct}%`,height:'100%',background:pct===100?'#10b981':accent,transition:'width .3s'}}/></div>
+        <div style={{display:'flex',flexDirection:'column',gap:4}}>
+          {proj.tasks.map(t=><div key={t.id} style={{display:'flex',alignItems:'center',gap:7,padding:'5px 7px',borderRadius:5,background:t.done?'#f0fdf4':'#fafafa',border:`1px solid ${t.done?'#bbf7d0':'#e4e4e7'}`}}>
+            <div onClick={()=>toggleTask(t.id)} style={{width:14,height:14,borderRadius:3,border:`2px solid ${t.done?'#10b981':accent}`,background:t.done?'#10b981':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,cursor:'pointer'}}>{t.done&&<span style={{color:'#fff',fontSize:9}}>✓</span>}</div>
+            {editingTaskId===t.id
+              ?<input ref={taskEditRef} value={editingTaskText} onChange={e=>setEditingTaskText(e.target.value)} onBlur={saveTaskEdit} onKeyDown={e=>{if(e.key==='Enter')saveTaskEdit();if(e.key==='Escape')setEditingTaskId(null);}} style={{flex:1,fontSize:11,border:'none',outline:'none',background:'transparent',padding:'1px 0'}}/>
+              :<span onClick={()=>{if(!t.done){setEditingTaskId(t.id);setEditingTaskText(t.text);}}} style={{fontSize:11,flex:1,color:t.done?'#71717a':'#18181b',textDecoration:t.done?'line-through':'none',cursor:t.done?'default':'text'}}>{t.text}</span>}
+            <button onClick={()=>removeTask(t.id)} style={{background:'none',border:'none',color:'#d4d4d8',fontSize:13,padding:0}}>×</button>
+          </div>)}
+          <div style={{display:'flex',gap:5,marginTop:2}}>
+            <input value={newTask} onChange={e=>setNewTask(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addTask()} placeholder="+ Aufgabe…" style={{flex:1,fontSize:11,padding:'5px 8px',borderRadius:5,border:'1px solid #e4e4e7',outline:'none',background:'#fafafa'}}/>
+            {newTask&&<button onClick={addTask} style={{background:accent,color:'#fff',border:'none',borderRadius:5,padding:'0 10px',fontSize:12,fontWeight:700}}>+</button>}
+          </div>
+        </div>
+      </div>
+      {/* DATEIEN */}
+      <div><SH title={`Dateien${projectFiles.length?' ('+projectFiles.length+')':''}`} action={<button onClick={()=>fileRef.current?.click()} style={{fontSize:10,fontWeight:600,color:accent,background:'none',border:'none',padding:0}}>+ Hochladen</button>}/>
+        <input ref={fileRef} type="file" multiple style={{display:'none'}} onChange={handleFileUpload}/>
+        {projectFiles.length===0?<div onClick={()=>fileRef.current?.click()} style={{border:'1.5px dashed #d4d4d8',borderRadius:7,padding:'14px',textAlign:'center',color:'#a1a1aa',fontSize:11,cursor:'pointer'}}>Dateien hochladen → gehen automatisch in den Kundenordner</div>
+        :<div style={{display:'flex',flexDirection:'column',gap:4}}>
+          {projectFiles.map(f=><FileRow key={f.id} file={f} projects={[]} showProject={false} onPreview={setPreviewFile} onRemove={()=>removeFile(f.id)} onRename={n=>renameFile(f.id,n)} onSetCover={f.type?.startsWith('image/')?async()=>{const compressed=await compressImage(f.data);save({coverImg:compressed});}:null}/>)}
+          <button onClick={()=>fileRef.current?.click()} style={{fontSize:10,color:accent,background:'none',border:`1px dashed ${accent}44`,borderRadius:5,padding:'5px 8px',fontWeight:500,marginTop:2}}>+ Weitere hochladen</button>
+        </div>}
+      </div>
+    </div>
+  </div>;
+}
+
+/* ─── AI MATCH BANNER ─── */
+function AiMatchBanner({match,onUseSame,onCreateNew,onDismiss}){
+  return <div style={{background:'#fffbeb',border:'1.5px solid #f59e0b',borderRadius:8,padding:'10px 12px',marginBottom:10}}>
+    <div style={{display:'flex',gap:8,alignItems:'flex-start'}}>
+      <span style={{fontSize:16}}>🤖</span>
+      <div style={{flex:1}}>
+        <div style={{fontWeight:600,fontSize:12,color:'#92400e',marginBottom:4}}>Ähnlicher Kunde gefunden</div>
+        <div style={{fontSize:11,color:'#78350f',marginBottom:8}}>Gibt es bereits <strong>"{match}"</strong>. Gleicher Kunde?</div>
+        <div style={{display:'flex',gap:6}}>
+          <button onClick={onUseSame} style={{background:'#f59e0b',color:'#fff',border:'none',borderRadius:5,padding:'4px 10px',fontSize:11,fontWeight:600}}>Ja, verwenden</button>
+          <button onClick={onCreateNew} style={{background:'#fff',color:'#92400e',border:'1px solid #f59e0b',borderRadius:5,padding:'4px 10px',fontSize:11}}>Neu anlegen</button>
+        </div>
+      </div>
+      <button onClick={onDismiss} style={{background:'none',border:'none',color:'#a1a1aa',fontSize:14,padding:0}}>×</button>
+    </div>
+  </div>;
+}
+
+/* ─── KUNDEN VIEW ─── */
+function KundenView({clients,setClients,projects,files,setFiles,accent,onOpenProject,initialSel}){
+  const [sel,setSel]=useState(initialSel||null);
+  const [viewMode,setViewMode]=useState('karten');
+  const [newMode,setNewMode]=useState(false);
+  const [form,setForm]=useState({});
+  const [aiChecking,setAiChecking]=useState(false);const [aiMatch,setAiMatch]=useState(null);
+  const [previewFile,setPreviewFile]=useState(null);
+  const clientFileRef=useRef();
+  const CFIELDS=[['name','Name'],['contact','Kontakt'],['email','E-Mail'],['phone','Telefon'],['address','Adresse'],['zip','PLZ'],['city','Stadt'],['country','Land'],['website','Website']];
+  useEffect(()=>{if(initialSel)setSel(initialSel);},[initialSel]);
+  function startNew(){setForm({id:uid(),name:'',contact:'',email:'',phone:'',address:'',zip:'',city:'',country:'Deutschland',website:'',extra:[]});setNewMode(true);setAiMatch(null);}
+  async function handleSaveNew(){if(!form.name?.trim())return;setAiChecking(true);const match=await aiCheckClientName(form.name,clients);setAiChecking(false);if(match){setAiMatch(match);}else{setClients([...clients,form]);setNewMode(false);}}
+  function confirmNew(){setClients([...clients,form]);setNewMode(false);setAiMatch(null);}
+  function useSame(){const e=clients.find(c=>c.name===aiMatch);if(e)setSel(e.id);setNewMode(false);setAiMatch(null);}
+  async function handleClientFileUpload(e,clientId){const fs=Array.from(e.target.files||[]);const loaded=await Promise.all(fs.map(readFileFn));const newFiles=loaded.map(f=>({...f,id:uid(),clientId,projectId:null,uploadedAt:nowISO()}));setFiles(prev=>[...prev,...newFiles]);e.target.value='';}
+  function renameFile(id,name){setFiles(prev=>prev.map(f=>f.id===id?{...f,name}:f));}
+  const selClient=sel?clients.find(c=>c.id===sel):null;
+  const selProjects=selClient?projects.filter(p=>p.clientId===selClient.id):[];
+  const selFiles=selClient?files.filter(f=>f.clientId===selClient.id):[];
+  return <div style={{flex:1,display:'flex',overflow:'hidden',height:'100%'}}>
+    {previewFile&&<FilePreview file={previewFile} onClose={()=>setPreviewFile(null)}/>}
+    <div style={{width:selClient?280:undefined,flex:selClient?undefined:1,overflow:'auto',padding:'14px',borderRight:selClient?'1px solid #e4e4e7':'none',flexShrink:0}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+        <span style={{fontWeight:700,fontSize:14}}>Kunden <span style={{fontSize:12,color:'#a1a1aa',fontWeight:400}}>({clients.length})</span></span>
+        <button onClick={startNew} style={{background:accent,color:'#fff',border:'none',borderRadius:7,padding:'5px 11px',fontSize:12,fontWeight:600}}>+ Neu</button>
+      </div>
+      {newMode&&<div style={{background:'#fff',borderRadius:8,border:`1.5px solid ${accent}`,padding:'12px',marginBottom:10}}>
+        {aiMatch&&<AiMatchBanner match={aiMatch} onUseSame={useSame} onCreateNew={confirmNew} onDismiss={()=>setAiMatch(null)}/>}
+        {!aiMatch&&<><div style={{fontWeight:600,fontSize:12,marginBottom:8,color:accent}}>Neuer Kunde</div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:8}}>
+            {CFIELDS.map(([k,l])=><div key={k}><div style={{fontSize:9,color:'#a1a1aa',marginBottom:2}}>{l.toUpperCase()}</div><input value={form[k]||''} onChange={e=>setForm({...form,[k]:e.target.value})} style={{width:'100%',fontSize:11,padding:'5px 7px',border:'1px solid #e4e4e7',borderRadius:5,outline:'none'}}/></div>)}
+          </div>
+          <div style={{display:'flex',gap:6,alignItems:'center'}}>
+            <button onClick={handleSaveNew} disabled={aiChecking} style={{background:accent,color:'#fff',border:'none',borderRadius:5,padding:'5px 12px',fontSize:11,fontWeight:600,opacity:aiChecking?0.7:1}}>{aiChecking?'🤖 Prüfe…':'Speichern'}</button>
+            <button onClick={()=>{setNewMode(false);setAiMatch(null);}} style={{background:'#f4f4f5',color:'#52525b',border:'none',borderRadius:5,padding:'5px 10px',fontSize:11}}>Abbrechen</button>
+          </div>
+        </>}
+      </div>}
+      <div style={{display:'flex',flexDirection:'column',gap:5}}>
+        {clients.map(c=>{const cp=projects.filter(p=>p.clientId===c.id);const cf=files.filter(f=>f.clientId===c.id);const active=cp.filter(p=>p.column!=='fertig').length;const isSel=sel===c.id;
+          return <div key={c.id} onClick={()=>setSel(isSel?null:c.id)} style={{background:'#fff',borderRadius:8,border:`1.5px solid ${isSel?accent:'#e4e4e7'}`,padding:'10px 12px',cursor:'pointer',boxShadow:isSel?`0 0 0 3px ${accent}22`:'none',transition:'all .1s'}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <div><div style={{fontWeight:600,fontSize:13}}>{c.name}</div><div style={{fontSize:10,color:'#71717a',marginTop:1}}>{c.contact||c.city||c.email||''}</div></div>
+              <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                {active>0&&<span style={{fontSize:9,background:`${accent}15`,color:accent,padding:'1px 6px',borderRadius:10,fontWeight:600}}>{active}</span>}
+                {cf.length>0&&<span style={{fontSize:9,background:'#f4f4f5',color:'#71717a',padding:'1px 5px',borderRadius:10}}>📎{cf.length}</span>}
+                <span style={{color:'#a1a1aa',fontSize:11}}>{isSel?'▲':'▼'}</span>
+              </div>
+            </div>
+          </div>;})}
+      </div>
+    </div>
+    {selClient&&<div style={{flex:1,overflow:'auto',padding:'14px',display:'flex',flexDirection:'column',gap:12}}>
+      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:10}}>
+        <div><div style={{fontWeight:700,fontSize:16}}>{selClient.name}</div>{selClient.city&&<div style={{fontSize:11,color:'#71717a'}}>{selClient.city}, {selClient.country}</div>}</div>
+        <div style={{display:'flex',gap:6,flexShrink:0}}>
+          <button onClick={()=>setViewMode(v=>v==='karten'?'liste':'karten')} style={{background:'#f4f4f5',border:'none',borderRadius:6,padding:'5px 10px',fontSize:11,color:'#52525b',fontWeight:500}}>{viewMode==='karten'?'≡ Liste':'⊞ Karten'}</button>
+          <button onClick={()=>setSel(null)} style={{background:'none',border:'1px solid #e4e4e7',borderRadius:6,padding:'5px 8px',fontSize:12,color:'#71717a'}}>×</button>
+        </div>
+      </div>
+      <div style={{background:'#fff',borderRadius:8,border:'1px solid #e4e4e7',padding:'12px 14px'}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
+          {[['E-Mail',selClient.email],['Telefon',selClient.phone],['Website',selClient.website],['Kontakt',selClient.contact],['Adresse',selClient.address?`${selClient.address}, ${selClient.zip} ${selClient.city}`:''],['Land',selClient.country],...(selClient.extra||[]).filter(e=>e.label&&e.value).map(e=>[e.label,e.value])].filter(([,v])=>v).map(([l,v])=>
+            <div key={l}><div style={{fontSize:9,color:'#a1a1aa',fontWeight:700,marginBottom:2}}>{l.toUpperCase()}</div><div style={{fontSize:11,fontWeight:500}}>{v}</div></div>)}
+        </div>
+      </div>
+      <div>
+        <div style={{fontWeight:700,fontSize:13,marginBottom:8}}>Projekte ({selProjects.length})</div>
+        {viewMode==='karten'&&<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(190px,1fr))',gap:10}}>
+          {selProjects.map(p=>{const done=p.tasks.filter(t=>t.done).length;const pct=p.tasks.length?Math.round(done/p.tasks.length*100):0;return <div key={p.id} onClick={()=>onOpenProject(p)} style={{background:'#fff',borderRadius:8,overflow:'hidden',border:'1.5px solid #e4e4e7',cursor:'pointer',transition:'border .1s'}} onMouseEnter={e=>e.currentTarget.style.borderColor=accent} onMouseLeave={e=>e.currentTarget.style.borderColor='#e4e4e7'}><CoverImage project={p} h={56}/><div style={{padding:'8px 10px'}}><div style={{fontWeight:600,fontSize:12,marginBottom:4}}>{p.title}</div>{p.deadline&&<DeadlineTag d={p.deadline}/>}{p.tasks.length>0&&<div style={{display:'flex',alignItems:'center',gap:5,marginTop:4}}><div style={{flex:1,height:2.5,background:'#e4e4e7',borderRadius:2,overflow:'hidden'}}><div style={{width:`${pct}%`,height:'100%',background:pct===100?'#10b981':accent}}/></div><span style={{fontSize:9,color:'#71717a'}}>{done}/{p.tasks.length}</span></div>}</div></div>;})}
+        </div>}
+        {viewMode==='liste'&&<div style={{background:'#fff',borderRadius:8,border:'1px solid #e4e4e7',overflow:'hidden'}}>
+          {selProjects.map((p,i)=>{return <div key={p.id} onClick={()=>onOpenProject(p)} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 12px',borderBottom:i<selProjects.length-1?'1px solid #f4f4f5':'none',cursor:'pointer'}} onMouseEnter={e=>e.currentTarget.style.background='#fafafa'} onMouseLeave={e=>e.currentTarget.style.background=''}><div style={{width:28,height:28,borderRadius:6,background:p.coverColor||'#e0e7ff',flexShrink:0,overflow:'hidden'}}>{p.coverImg&&<img src={p.coverImg} style={{width:'100%',height:'100%',objectFit:'cover'}} alt=""/>}</div><div style={{flex:1,minWidth:0}}><div style={{fontWeight:600,fontSize:12,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.title}</div>{p.deadline&&<DeadlineTag d={p.deadline}/>}</div></div>;})}
+        </div>}
+      </div>
+      <div>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
+          <div style={{fontWeight:700,fontSize:13}}>Kundenordner <span style={{fontSize:11,color:'#a1a1aa',fontWeight:400}}>({selFiles.length})</span></div>
+          <button onClick={()=>clientFileRef.current?.click()} style={{background:accent,color:'#fff',border:'none',borderRadius:6,padding:'4px 10px',fontSize:11,fontWeight:600}}>+ Hochladen</button>
+        </div>
+        <input ref={clientFileRef} type="file" multiple style={{display:'none'}} onChange={e=>handleClientFileUpload(e,selClient.id)}/>
+        {selFiles.length===0?<div onClick={()=>clientFileRef.current?.click()} style={{border:'1.5px dashed #d4d4d8',borderRadius:8,padding:'18px',textAlign:'center',color:'#a1a1aa',fontSize:11,cursor:'pointer',background:'#fafafa'}}><div style={{fontSize:22,marginBottom:6}}>📁</div>Noch keine Dateien. Hier hochladen oder über Projekte.</div>
+        :<div style={{display:'flex',flexDirection:'column',gap:5}}>
+          {[...new Set(selFiles.map(f=>f.projectId))].map(pid=>{
+            const group=selFiles.filter(f=>f.projectId===pid);const proj=projects.find(p=>p.id===pid);
+            return <div key={pid||'none'}><div style={{fontSize:9,fontWeight:700,color:'#a1a1aa',letterSpacing:'0.07em',marginBottom:4}}>{proj?proj.title.toUpperCase():'OHNE PROJEKT'} · {group.length}</div>
+              {group.map(f=><FileRow key={f.id} file={f} projects={projects} showProject={false} onPreview={setPreviewFile} onRemove={()=>setFiles(prev=>prev.filter(x=>x.id!==f.id))} onRename={n=>renameFile(f.id,n)}/>)}
+            </div>;})}
+        </div>}
+      </div>
+    </div>}
+  </div>;
+}
+
+/* ─── DATEIEN VIEW ─── */
+function DateienView({clients,projects,files,setFiles,setProjects,accent}){
+  const [open,setOpen]=useState({});const [previewFile,setPreviewFile]=useState(null);
+  function toggle(id){setOpen(s=>({...s,[id]:!s[id]}));}
+  function renameFile(id,name){setFiles(prev=>prev.map(f=>f.id===id?{...f,name}:f));}
+  async function setCoverFromFile(file){
+    if(!file.projectId||!file.data)return;
+    const compressed=await compressImage(file.data);
+    setProjects(prev=>prev.map(p=>p.id===file.projectId?{...p,coverImg:compressed}:p));
+  }  const cwf=clients.map(c=>({...c,files:files.filter(f=>f.clientId===c.id)})).filter(c=>c.files.length>0);
+  const unassigned=files.filter(f=>!f.clientId);
+  return <div style={{flex:1,overflow:'auto',padding:'14px'}}>
+    {previewFile&&<FilePreview file={previewFile} onClose={()=>setPreviewFile(null)}/>}
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+      <div style={{fontWeight:700,fontSize:14}}>Dateien <span style={{fontSize:12,color:'#a1a1aa',fontWeight:400}}>({files.length})</span></div>
+      <div style={{display:'flex',gap:5}}>
+        <button onClick={()=>setOpen(Object.fromEntries(clients.map(c=>[c.id,true])))} style={{fontSize:10,background:'#f4f4f5',border:'none',borderRadius:5,padding:'4px 8px',color:'#52525b',fontWeight:500}}>Alle öffnen</button>
+        <button onClick={()=>setOpen({})} style={{fontSize:10,background:'#f4f4f5',border:'none',borderRadius:5,padding:'4px 8px',color:'#52525b',fontWeight:500}}>Alle schließen</button>
+      </div>
+    </div>
+    {files.length===0&&<div style={{textAlign:'center',color:'#a1a1aa',marginTop:60,fontSize:13}}><div style={{fontSize:36,marginBottom:8}}>📁</div>Noch keine Dateien vorhanden.</div>}
+    <div style={{display:'flex',flexDirection:'column',gap:6}}>
+      {cwf.map(c=>{const isOpen=open[c.id];const grouped=[...new Set(c.files.map(f=>f.projectId))];
+        return <div key={c.id} style={{background:'#fff',borderRadius:8,border:'1px solid #e4e4e7',overflow:'hidden'}}>
+          <div onClick={()=>toggle(c.id)} style={{display:'flex',alignItems:'center',gap:9,padding:'10px 14px',cursor:'pointer',background:isOpen?`${accent}08`:'#fff',userSelect:'none'}}>
+            <span style={{fontSize:16}}>{isOpen?'📂':'📁'}</span>
+            <div style={{flex:1}}><span style={{fontWeight:700,fontSize:13,color:isOpen?accent:'#18181b'}}>{c.name}</span><span style={{fontSize:10,color:'#a1a1aa',marginLeft:6}}>{c.city?c.city+' · ':''}{c.files.length} Datei{c.files.length!==1?'en':''}</span></div>
+            <span style={{color:'#a1a1aa',fontSize:11}}>{isOpen?'▲':'▼'}</span>
+          </div>
+          {isOpen&&<div style={{borderTop:'1px solid #f0f0f0',padding:'8px 14px',display:'flex',flexDirection:'column',gap:8}}>
+            {grouped.map(pid=>{const group=c.files.filter(f=>f.projectId===pid);const proj=projects.find(p=>p.id===pid);
+              return <div key={pid||'none'}><div style={{fontSize:9,fontWeight:700,color:'#a1a1aa',letterSpacing:'0.07em',marginBottom:4}}>{proj?proj.title.toUpperCase():'OHNE PROJEKT'} · {group.length}</div>
+                {group.map(f=><FileRow key={f.id} file={f} projects={projects} showProject={false} onPreview={setPreviewFile} onRemove={()=>setFiles(prev=>prev.filter(x=>x.id!==f.id))} onRename={n=>renameFile(f.id,n)}/>)}
+              </div>;})}
+          </div>}
+        </div>;})}
+      {unassigned.length>0&&<div style={{background:'#fff',borderRadius:8,border:'1px solid #e4e4e7',overflow:'hidden'}}>
+        <div onClick={()=>toggle('__none')} style={{display:'flex',alignItems:'center',gap:9,padding:'10px 14px',cursor:'pointer'}}>
+          <span style={{fontSize:16}}>{open['__none']?'📂':'📁'}</span><span style={{fontWeight:600,fontSize:13,color:'#71717a',flex:1}}>Ohne Kunde <span style={{fontSize:10,color:'#a1a1aa',fontWeight:400}}>({unassigned.length})</span></span>
+        </div>
+        {open['__none']&&<div style={{borderTop:'1px solid #f0f0f0',padding:'8px 14px',display:'flex',flexDirection:'column',gap:4}}>
+          {unassigned.map(f=><FileRow key={f.id} file={f} projects={projects} onPreview={setPreviewFile} onRemove={()=>setFiles(prev=>prev.filter(x=>x.id!==f.id))} onRename={n=>renameFile(f.id,n)}/>)}
+        </div>}
+      </div>}
+    </div>
+  </div>;
+}
+
+/* ─── TODO VIEW ─── */
+function TodoItem({todo,onToggle,onRemove,onUpdate,accent}){
+  const [editText,setEditText]=useState(false);const [text,setText]=useState(todo.text);const [note,setNote]=useState(todo.note||'');const [showNote,setShowNote]=useState(false);const inputRef=useRef();
+  useEffect(()=>{if(editText&&inputRef.current)inputRef.current.focus();},[editText]);
+  function saveText(){setEditText(false);if(text.trim()!==todo.text)onUpdate({text:text.trim()||todo.text});}
+  return <div style={{background:'#fff',borderRadius:8,border:'1.5px solid #e4e4e7',overflow:'hidden',opacity:todo.done?0.7:1}}>
+    <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 11px'}}>
+      <div onClick={onToggle} style={{width:17,height:17,borderRadius:5,border:`2.5px solid ${todo.done?'#10b981':accent}`,background:todo.done?'#10b981':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,cursor:'pointer',transition:'all .15s'}}>{todo.done&&<span style={{color:'#fff',fontSize:10}}>✓</span>}</div>
+      {editText?<input ref={inputRef} value={text} onChange={e=>setText(e.target.value)} onBlur={saveText} onKeyDown={e=>{if(e.key==='Enter')saveText();if(e.key==='Escape'){setEditText(false);setText(todo.text);}}} style={{flex:1,fontSize:12,border:'none',outline:'none',background:'transparent',padding:'1px 0'}}/>
+      :<span onClick={()=>!todo.done&&setEditText(true)} style={{flex:1,fontSize:12,color:todo.done?'#a1a1aa':'#18181b',textDecoration:todo.done?'line-through':'none',cursor:todo.done?'default':'text',lineHeight:1.4}}>{todo.text}</span>}
+      <Badge label={(PRIO[todo.prio]||PRIO.mittel).label} color={(PRIO[todo.prio]||PRIO.mittel).c} bg={(PRIO[todo.prio]||PRIO.mittel).bg}/>
+      {todo.deadline&&<DeadlineTag d={todo.deadline}/>}
+      <button onClick={()=>setShowNote(v=>!v)} style={{background:showNote||todo.note?`${accent}15`:'none',border:'none',borderRadius:4,padding:'2px 5px',fontSize:11,color:showNote||todo.note?accent:'#d4d4d8',cursor:'pointer'}}>✎</button>
+      <button onClick={onRemove} style={{background:'none',border:'none',color:'#d4d4d8',fontSize:14,padding:0}}>×</button>
+    </div>
+    <div style={{display:'flex',gap:10,padding:'0 11px 7px',alignItems:'center'}}>
+      <div style={{display:'flex',gap:4,alignItems:'center'}}><span style={{fontSize:9,color:'#a1a1aa'}}>Fällig</span><input type="date" value={todo.deadline||''} onChange={e=>onUpdate({deadline:e.target.value})} style={{fontSize:10,padding:'2px 5px',border:'1px solid #e4e4e7',borderRadius:4,outline:'none',fontFamily:'Outfit',color:'#52525b'}}/></div>
+      <div style={{display:'flex',gap:4,alignItems:'center'}}><span style={{fontSize:9,color:'#a1a1aa'}}>Prio</span><select value={todo.prio||'mittel'} onChange={e=>onUpdate({prio:e.target.value})} style={{fontSize:10,padding:'2px 5px',border:'1px solid #e4e4e7',borderRadius:4,background:'#fff',outline:'none',fontFamily:'Outfit',color:'#52525b'}}><option value="hoch">Hoch</option><option value="mittel">Mittel</option><option value="niedrig">Niedrig</option></select></div>
+    </div>
+    {showNote&&<div style={{borderTop:'1px solid #f0f0f0',padding:'7px 11px',background:'#fafafa'}}><textarea value={note} onChange={e=>{setNote(e.target.value);onUpdate({note:e.target.value});}} placeholder="Notiz…" rows={2} style={{width:'100%',fontSize:11,border:'1px solid #e4e4e7',borderRadius:5,padding:'5px 7px',outline:'none',resize:'vertical',lineHeight:1.5,fontFamily:'Outfit'}}/></div>}
+  </div>;
+}
+function TodoView({todos,setTodos,accent}){
+  const [newText,setNewText]=useState('');const [newPrio,setNewPrio]=useState('mittel');
+  function add(){if(!newText.trim())return;setTodos(t=>[...t,{id:uid(),text:newText.trim(),done:false,prio:newPrio,deadline:'',note:''}]);setNewText('');}
+  const open=todos.filter(t=>!t.done).sort((a,b)=>{const o={hoch:0,mittel:1,niedrig:2};return o[a.prio]-o[b.prio];});
+  const done=todos.filter(t=>t.done);
+  return <div style={{flex:1,overflow:'auto',padding:'14px',maxWidth:620}}>
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+      <span style={{fontWeight:700,fontSize:14}}>Todo-Liste</span>
+      {done.length>0&&<button onClick={()=>setTodos(t=>t.filter(x=>!x.done))} style={{fontSize:10,color:'#a1a1aa',background:'none',border:'1px solid #e4e4e7',borderRadius:5,padding:'3px 8px'}}>Erledigte löschen</button>}
+    </div>
+    <div style={{display:'flex',gap:6,marginBottom:14,background:'#fff',borderRadius:8,border:`1.5px solid ${accent}`,padding:'7px 10px',alignItems:'center'}}>
+      <select value={newPrio} onChange={e=>setNewPrio(e.target.value)} style={{fontSize:11,padding:'3px 5px',border:'1px solid #e4e4e7',borderRadius:5,background:'#fff',outline:'none',fontFamily:'Outfit',flexShrink:0}}><option value="hoch">↑ Hoch</option><option value="mittel">→ Mittel</option><option value="niedrig">↓ Niedrig</option></select>
+      <input value={newText} onChange={e=>setNewText(e.target.value)} onKeyDown={e=>e.key==='Enter'&&add()} placeholder="Neue Aufgabe…" style={{flex:1,fontSize:13,border:'none',outline:'none',background:'transparent'}}/>
+      {newText&&<button onClick={add} style={{background:accent,color:'#fff',border:'none',borderRadius:6,padding:'4px 12px',fontSize:12,fontWeight:700}}>+</button>}
+    </div>
+    {open.length>0&&<div style={{marginBottom:12}}><div style={{fontSize:9,fontWeight:700,color:'#a1a1aa',letterSpacing:'0.08em',marginBottom:6}}>OFFEN ({open.length})</div><div style={{display:'flex',flexDirection:'column',gap:5}}>{open.map(t=><TodoItem key={t.id} todo={t} onToggle={()=>setTodos(ts=>ts.map(x=>x.id===t.id?{...x,done:!x.done}:x))} onRemove={()=>setTodos(ts=>ts.filter(x=>x.id!==t.id))} onUpdate={u=>setTodos(ts=>ts.map(x=>x.id===t.id?{...x,...u}:x))} accent={accent}/>)}</div></div>}
+    {done.length>0&&<div><div style={{fontSize:9,fontWeight:700,color:'#a1a1aa',letterSpacing:'0.08em',marginBottom:6}}>ERLEDIGT ({done.length})</div><div style={{display:'flex',flexDirection:'column',gap:4}}>{done.map(t=><TodoItem key={t.id} todo={t} onToggle={()=>setTodos(ts=>ts.map(x=>x.id===t.id?{...x,done:!x.done}:x))} onRemove={()=>setTodos(ts=>ts.filter(x=>x.id!==t.id))} onUpdate={u=>setTodos(ts=>ts.map(x=>x.id===t.id?{...x,...u}:x))} accent={accent}/>)}</div></div>}
+  </div>;
+}
+
+/* ─── TWEAK DEFAULTS ─── */
+const TWEAK_DEFAULTS=/*EDITMODE-BEGIN*/{
+  "accentColor": "#0ea5e9",
+  "sortBy": "custom"
+}/*EDITMODE-END*/;
+
+/* ─── MAIN APP ─── */
+function App(){
+  const [tweaks,setTweaks]=useState(TWEAK_DEFAULTS);
+  const [showTweaks,setShowTweaks]=useState(false);
+  const [showStatusMgr,setShowStatusMgr]=useState(false);
+  const [nav,setNav]=useState('projekte');
+  const [view,setView]=useState('board');
+  const [statuses,setStatuses]=useState(INIT_STATUSES);
+  const [projects,setProjects]=useState(INIT_PROJECTS);
+  const [clients,setClients]=useState(INIT_CLIENTS);
+  const [todos,setTodos]=useState(INIT_TODOS);
+  const [files,setFiles]=useState([]);
+  const [customOrder,setCustomOrder]=useState({});
+  const [selectedProject,setSelectedProject]=useState(null);
+  const [filter,setFilter]=useState({search:'',priority:'alle',tag:null});
+  const [showNewModal,setShowNewModal]=useState(false);
+  const [clientNavTarget,setClientNavTarget]=useState(null);
+  const accent=tweaks.accentColor||'#10b981';
+
+  useEffect(()=>{
+    try{const d=JSON.parse(localStorage.getItem('tf6_projects'));if(d)setProjects(d);}catch(e){}
+    try{const d=JSON.parse(localStorage.getItem('tf6_clients'));if(d)setClients(d);}catch(e){}
+    try{const d=JSON.parse(localStorage.getItem('tf6_todos'));if(d)setTodos(d);}catch(e){}
+    try{const d=JSON.parse(localStorage.getItem('tf6_files'));if(d)setFiles(d);}catch(e){}
+    try{const d=JSON.parse(localStorage.getItem('tf6_statuses'));if(d)setStatuses(d);}catch(e){}
+    try{const d=localStorage.getItem('tf6_nav');if(d)setNav(d);}catch(e){}
+    try{const d=JSON.parse(localStorage.getItem('tf6_customOrder'));if(d)setCustomOrder(d);}catch(e){}
+  },[]);
+  useEffect(()=>{localStorage.setItem('tf6_projects',JSON.stringify(projects));},[projects]);
+  useEffect(()=>{localStorage.setItem('tf6_clients',JSON.stringify(clients));},[clients]);
+  useEffect(()=>{localStorage.setItem('tf6_todos',JSON.stringify(todos));},[todos]);
+  useEffect(()=>{try{localStorage.setItem('tf6_files',JSON.stringify(files));}catch(e){}},[files]);
+  useEffect(()=>{localStorage.setItem('tf6_statuses',JSON.stringify(statuses));},[statuses]);
+  useEffect(()=>{localStorage.setItem('tf6_nav',nav);},[nav]);
+  useEffect(()=>{localStorage.setItem('tf6_view',view);},[view]);
+  useEffect(()=>{localStorage.setItem('tf6_customOrder',JSON.stringify(customOrder));},[customOrder]);
+
+  useEffect(()=>{
+    function h(e){if(e.data?.type==='__activate_edit_mode')setShowTweaks(true);if(e.data?.type==='__deactivate_edit_mode')setShowTweaks(false);}
+    window.addEventListener('message',h);window.parent.postMessage({type:'__edit_mode_available'},'*');
+    return()=>window.removeEventListener('message',h);
+  },[]);
+  function setTweak(k,v){const n={...tweaks,[k]:v};setTweaks(n);window.parent.postMessage({type:'__edit_mode_set_keys',edits:n},'*');}
+
+  // Collect all unique tags across projects
+  const allTags=useMemo(()=>{const seen={};projects.forEach(p=>(p.tags||[]).forEach(t=>{if(t.id&&!seen[t.label])seen[t.label]=t;}));return Object.values(seen);},[projects]);
+
+  const filtered=useMemo(()=>projects.filter(p=>{
+    if(filter.priority!=='alle'&&p.priority!==filter.priority)return false;
+    if(filter.tag&&!p.tags.some(t=>t.label===filter.tag))return false;
+    if(filter.search){const s=filter.search.toLowerCase();if(!p.title.toLowerCase().includes(s)&&!p.customFields.some(f=>f.value?.toLowerCase().includes(s)))return false;}
+    return true;
+  }),[projects,filter]);
+
+  function handleCardClick(p){setSelectedProject(prev=>prev?.id===p.id?null:p);}
+  function moveProject(id,col){setProjects(ps=>ps.map(p=>p.id===id?{...p,column:col}:p));}
+  function addProject(proj){setProjects(ps=>[proj,...ps]);setSelectedProject(proj);}
+  function openProjectFromSearch(p){setNav('projekte');setSelectedProject(p);}
+  function openClientFromSearch(c){setNav('kunden');setClientNavTarget(c.id);}
+
+  const VIEWS=[{id:'board',label:'Board'},{id:'swimlane',label:'Swimlanes'},{id:'liste',label:'Liste'},{id:'kalender',label:'Kalender'}];
+
+  return <div style={{display:'flex',height:'100vh',overflow:'hidden',background:'#f4f4f5'}}>
+    <Sidebar nav={nav} setNav={v=>{setNav(v);setSelectedProject(null);}} accent={accent} projects={projects} clients={clients} files={files} onOpenProject={openProjectFromSearch} onOpenClient={openClientFromSearch}/>
+    <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0}}>
+      {/* TOPBAR */}
+      <div style={{background:'#fff',borderBottom:'1px solid #e4e4e7',display:'flex',alignItems:'center',gap:7,padding:'0 14px',flexShrink:0,flexWrap:'wrap',minHeight:48}}>
+        {nav==='projekte'&&<>
+          <div style={{display:'flex',background:'#f4f4f5',borderRadius:7,padding:2,gap:1,margin:'6px 0'}}>
+            {VIEWS.map(v=><button key={v.id} onClick={()=>{setView(v.id);setSelectedProject(null);}} style={{padding:'3px 10px',borderRadius:5,border:'none',fontSize:11,fontWeight:600,cursor:'pointer',background:view===v.id?'#fff':'transparent',color:view===v.id?accent:'#71717a',boxShadow:view===v.id?'0 1px 3px rgba(0,0,0,0.1)':'none'}}>{v.label}</button>)}
+          </div>
+          <div style={{position:'relative',flex:'0 1 160px'}}>
+            <span style={{position:'absolute',left:8,top:'50%',transform:'translateY(-50%)',color:'#a1a1aa',fontSize:12}}>⌕</span>
+            <input value={filter.search} onChange={e=>setFilter(f=>({...f,search:e.target.value}))} placeholder="Suchen…" style={{width:'100%',paddingLeft:24,height:28,borderRadius:6,border:'1px solid #e4e4e7',fontSize:11,outline:'none',background:'#fafafa'}}/>
+          </div>
+          <div style={{display:'flex',gap:3}}>
+            {['alle','hoch','mittel','niedrig'].map(p=><button key={p} onClick={()=>setFilter(f=>({...f,priority:p}))} style={{padding:'3px 7px',borderRadius:5,border:`1.5px solid ${filter.priority===p?accent:'#e4e4e7'}`,fontSize:10,fontWeight:500,background:filter.priority===p?`${accent}15`:'#fff',color:filter.priority===p?accent:'#71717a',cursor:'pointer'}}>{p==='alle'?'Alle':(PRIO[p]?.label||p)}</button>)}
+          </div>
+          {/* TAG FILTER */}
+          {allTags.length>0&&<div style={{display:'flex',gap:3,flexWrap:'wrap',alignItems:'center'}}>
+            <span style={{fontSize:9,color:'#a1a1aa',fontWeight:700,letterSpacing:'0.05em'}}>TAG:</span>
+            {allTags.slice(0,8).map(t=><button key={t.label} onClick={()=>setFilter(f=>({...f,tag:f.tag===t.label?null:t.label}))} style={{display:'inline-flex',alignItems:'center',gap:3,fontSize:10,fontWeight:600,background:filter.tag===t.label?t.color:t.color+'66',color:'#3f3f46',padding:'2px 7px',borderRadius:10,border:`2px solid ${filter.tag===t.label?'rgba(0,0,0,0.25)':'transparent'}`,cursor:'pointer'}}>{t.label}</button>)}
+            {filter.tag&&<button onClick={()=>setFilter(f=>({...f,tag:null}))} style={{fontSize:10,color:'#a1a1aa',background:'none',border:'none',padding:'2px 4px'}}>×</button>}
+          </div>}
+          <div style={{flex:1}}/>
+          <button onClick={()=>setShowStatusMgr(true)} title="Status verwalten" style={{background:'#f4f4f5',color:'#52525b',border:'none',borderRadius:6,padding:'4px 8px',fontSize:11,fontWeight:500}}>⚙ Status</button>
+          <div style={{display:'flex',gap:3}}>
+            {[['deadline','↕ Deadline'],['priority','↕ Priorität'],['custom','↕ Custom']].map(([v,l])=>
+              <button key={v} onClick={()=>setTweak('sortBy',tweaks.sortBy===v?null:v)} style={{padding:'3px 8px',borderRadius:5,border:`1.5px solid ${tweaks.sortBy===v?accent:'#e4e4e7'}`,fontSize:10,fontWeight:600,background:tweaks.sortBy===v?`${accent}15`:'#fff',color:tweaks.sortBy===v?accent:'#a1a1aa',cursor:'pointer'}}>{l}</button>)}
+          </div>
+          <button onClick={()=>setShowNewModal(true)} style={{background:accent,color:'#fff',border:'none',borderRadius:7,padding:'5px 12px',fontSize:12,fontWeight:600}}>+ Projekt</button>
+        </>}
+        {nav!=='projekte'&&<span style={{fontWeight:700,fontSize:14}}>{nav==='kunden'?'Kunden':nav==='dateien'?'Dateien':'Todo-Liste'}</span>}
+      </div>
+      {/* BODY */}
+      <div style={{flex:1,overflow:'hidden',display:'flex'}}>
+        <div style={{flex:1,overflow:'hidden',display:'flex',flexDirection:'column'}}>
+          {nav==='projekte'&&view==='board'&&<div style={{flex:1,overflow:'hidden'}}><BoardView projects={filtered} clients={clients} files={files} statuses={statuses} onCardClick={handleCardClick} selectedId={selectedProject?.id} accent={accent} sortBy={tweaks.sortBy} onMoveProject={moveProject} customOrder={customOrder} onCustomOrder={(colId,ids)=>setCustomOrder(prev=>({...prev,[colId]:ids}))}/></div>}
+          {nav==='projekte'&&view==='swimlane'&&<SwimlaneView projects={filtered} statuses={statuses} onCardClick={handleCardClick} selectedId={selectedProject?.id} accent={accent}/>}
+          {nav==='projekte'&&view==='liste'&&<ListView projects={filtered} clients={clients} statuses={statuses} onCardClick={handleCardClick} selectedId={selectedProject?.id} accent={accent} sortBy={tweaks.sortBy}/>}
+          {nav==='projekte'&&view==='kalender'&&<CalendarView projects={filtered} statuses={statuses} onCardClick={handleCardClick} accent={accent}/>}
+          {nav==='kunden'&&<KundenView key={clientNavTarget} clients={clients} setClients={setClients} projects={projects} files={files} setFiles={setFiles} accent={accent} onOpenProject={p=>setSelectedProject(prev=>prev?.id===p.id?null:p)} initialSel={clientNavTarget}/>}
+          {nav==='dateien'&&<DateienView clients={clients} projects={projects} files={files} setFiles={setFiles} setProjects={setProjects} accent={accent}/>}
+          {nav==='todos'&&<TodoView todos={todos} setTodos={setTodos} accent={accent}/>}
+        </div>
+        {(nav==='projekte'||nav==='kunden')&&selectedProject&&<ProjectDetail
+          key={selectedProject.id}
+          project={projects.find(p=>p.id===selectedProject.id)||selectedProject}
+          projects={projects} setProjects={setProjects}
+          clients={clients} setClients={setClients}
+          files={files} setFiles={setFiles}
+          statuses={statuses}
+          onClose={()=>setSelectedProject(null)} accent={accent}
+        />}
+      </div>
+    </div>
+    {showNewModal&&<NewProjectModal clients={clients} statuses={statuses} onSave={addProject} onClose={()=>setShowNewModal(false)} accent={accent}/>}
+    {showStatusMgr&&<StatusManager statuses={statuses} setStatuses={setStatuses} onClose={()=>setShowStatusMgr(false)}/>}
+    {showTweaks&&<div style={{position:'fixed',bottom:20,right:20,background:'#fff',borderRadius:12,border:'1px solid #e4e4e7',boxShadow:'0 8px 32px rgba(0,0,0,0.12)',padding:'16px',width:210,zIndex:300}}>
+      <div style={{fontWeight:700,fontSize:13,marginBottom:12}}>Tweaks</div>
+      <div style={{display:'flex',flexDirection:'column',gap:10}}>
+        <div><div style={{fontSize:10,fontWeight:600,color:'#71717a',marginBottom:5}}>AKZENTFARBE</div>
+          <div style={{display:'flex',gap:5}}>{['#10b981','#5b5bd6','#0ea5e9','#f59e0b','#ef4444','#8b5cf6'].map(c=><button key={c} onClick={()=>setTweak('accentColor',c)} style={{width:24,height:24,borderRadius:'50%',background:c,border:`2.5px solid ${tweaks.accentColor===c?'#18181b':'transparent'}`,cursor:'pointer'}}/>)}</div>
+        </div>
+        <div><div style={{fontSize:10,fontWeight:600,color:'#71717a',marginBottom:5}}>SORTIERUNG</div>
+          <div style={{display:'flex',gap:4}}>{[['deadline','Deadline'],['priority','Priorität'],['custom','Custom']].map(([v,l])=><button key={v} onClick={()=>setTweak('sortBy',v)} style={{flex:1,padding:'5px',borderRadius:5,border:`1.5px solid ${tweaks.sortBy===v?accent:'#e4e4e7'}`,background:tweaks.sortBy===v?`${accent}15`:'#fff',fontSize:11,fontWeight:500,color:tweaks.sortBy===v?accent:'#52525b',cursor:'pointer'}}>{l}</button>)}</div>
+        </div>
+      </div>
+    </div>}
+  </div>;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
